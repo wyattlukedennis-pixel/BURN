@@ -1,0 +1,2069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Deflationary SOL — Auto Buy & Burn</title>
+  <style>
+    :root { --bg:#0b0d12; --muted:#8a94ad; --text:#eaf0ff; --panel-max-width:2400px; }
+    * { box-sizing:border-box }
+    html,body{height:100%} body{margin:0;background:#0b0d12;color:#eaf0ff;font-family:Inter,ui-sans-serif,system-ui;font-size:clamp(17px,1vw,19px);line-height:1.48;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;-webkit-text-size-adjust:100%;letter-spacing:.01em}
+    .wrap{position:fixed;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:clamp(20px,4vh,36px) clamp(16px,4vw,56px) clamp(24px,4vh,32px);background:#0b0d12;overflow:auto}
+    .burn-glow{position:fixed;inset:-18%;background:radial-gradient(circle at 50% 50%,rgba(255,163,50,.38),rgba(255,92,0,.18) 42%,rgba(0,0,0,.82) 78%);opacity:.42;pointer-events:none;transition:opacity .55s ease,transform .55s ease;border:0;transform:scale(1)}
+    .burn-glow.show{opacity:.85;transform:scale(1.28)}
+    .panel-shell{flex:1;display:flex;justify-content:center;align-items:flex-start;min-height:0}
+    .panel-scale{position:relative;z-index:1;display:flex;justify-content:center;align-items:center;transform-origin:center center;transform:scale(var(--panel-scale,1));width:clamp(320px,calc(100vw - 32px),var(--panel-max-width));max-width:var(--panel-max-width);}
+    .panel{width:100%;height:100%;max-width:var(--panel-max-width);margin:0;padding:24px 32px 38px;position:relative;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);grid-template-areas:"header header" "metrics context" "ticker context" "cycle context";row-gap:22px;column-gap:36px;align-content:start;grid-auto-rows:minmax(0,min-content);background:transparent;border:none;box-shadow:none;border-radius:0;overflow:hidden}
+    .panel.pulse{box-shadow:none;transform:translateY(-2px)}
+    .header{display:flex;justify-content:space-between;align-items:center;grid-area:header}
+    .brand-wrap{display:flex;align-items:flex-end;gap:24px;width:100%;max-width:1180px}
+    .brand-info{display:flex;align-items:flex-end;gap:18px 32px;width:100%;justify-content:space-between;flex-wrap:wrap}
+    .brand-label{font-weight:900;font-size:clamp(38px,3.4vw,52px);letter-spacing:.015em;text-transform:uppercase;text-shadow:0 18px 38px rgba(0,0,0,.5);white-space:nowrap;flex:1 1 auto}
+    .brand-ca{font-size:clamp(15px,1.35vw,17px);color:#e1e6f8;font-weight:600;letter-spacing:.03em;text-transform:none;display:flex;gap:14px;align-items:center;text-shadow:0 8px 20px rgba(0,0,0,.45);margin-left:auto;white-space:nowrap;padding:8px 18px;border-radius:999px;background:rgba(15,12,10,.36);border:1px solid rgba(255,255,255,.08);box-shadow:0 14px 28px rgba(0,0,0,.38)}
+    .brand-ca-label{font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#ffdca3;font-size:.85em}
+    .brand-ca-value{font-family:"JetBrains Mono","SFMono-Regular",Menlo,monospace;font-size:clamp(13px,1.2vw,15px);background:rgba(255,255,255,.1);padding:6px 14px;border-radius:14px;color:#f5f7ff;box-shadow:0 12px 24px rgba(0,0,0,.32)}
+    .btn{padding:12px 20px;border-radius:16px;border:1px solid rgba(255,255,255,.18);background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.02));color:#fff;font-weight:700;font-size:17px;cursor:pointer}
+    .pill{padding:8px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.12);font-size:14px;color:#8a94ad}
+    .grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1.3fr);grid-template-rows:auto auto;grid-template-areas:"timer stack" "wallet wallet";gap:20px 30px;margin-top:0;position:relative;z-index:1;grid-area:metrics;align-items:stretch}
+    .card{border:none;background:linear-gradient(145deg,rgba(10,12,18,.9),rgba(26,18,12,.88));border-radius:26px;padding:clamp(20px,2.4vw,30px) clamp(18px,3vw,32px);position:relative;box-shadow:0 28px 40px rgba(0,0,0,.44);border:1px solid rgba(255,255,255,.05)}
+    .metric-card--accent{background:rgba(10,12,18,.9);border:none;box-shadow:none}
+    .metric-card--accent::after{display:none}
+    .metric-card--accent .value{color:#ffe8c8}
+    .label{font-size:clamp(13px,1.2vw,15px);color:#a7b4d4;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+    .value{font-weight:900;letter-spacing:1.05px;margin-top:9px;font-variant-numeric:tabular-nums;font-size:clamp(28px,2.3vw,38px);text-shadow:0 8px 24px rgba(0,0,0,.6)}
+    .value.value-animate{animation:valuePulse .6s ease}
+    @keyframes valuePulse{0%{transform:scale(.97)}50%{transform:scale(1.04)}100%{transform:scale(1)}}
+    .count-shell{position:relative;width:clamp(200px,28vw,280px);height:clamp(200px,28vw,280px);margin:6px auto 4px}
+    .count-ring{--angle:0deg;position:absolute;inset:0;border-radius:50%;background:conic-gradient(rgba(255,140,0,.65) var(--angle),rgba(255,255,255,.08) 0);filter:none;transition:background .24s ease,transform .4s ease}
+    .count-ring::after{content:"";position:absolute;inset:14px;border-radius:50%;background:radial-gradient(circle at 50% 40%,rgba(18,20,28,.92),rgba(18,20,28,.6));box-shadow:inset 0 0 8px rgba(0,0,0,.4)}
+    .count-ring.pop{animation:ringPop .7s ease}
+    .count-ring.danger{filter:drop-shadow(0 0 34px rgba(255,120,0,.48)) drop-shadow(0 0 16px rgba(255,40,0,.45))}
+    @keyframes ringPop{0%{transform:scale(.94)}35%{transform:scale(1.05)}100%{transform:scale(1)}}
+    .countdown{position:absolute;inset:0;font-size:clamp(70px,8.8vw,120px);transition:transform .3s ease;display:flex;align-items:center;justify-content:center;text-shadow:0 10px 34px rgba(0,0,0,.65),0 0 18px rgba(255,170,70,.4)}
+    .countdown.pulse{animation:countPulse .9s ease-out forwards}
+    @keyframes countPulse{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+    .count-note{text-align:center;margin-top:10px;font-size:clamp(13px,1.3vw,16px);color:#ffdd9e;font-weight:600;letter-spacing:.07em;text-transform:uppercase;opacity:.95;text-shadow:0 4px 18px rgba(0,0,0,.5)}
+    .big{font-size:clamp(44px,3.8vw,72px)}
+    .timer-adjust{display:flex;justify-content:center;align-items:center;gap:12px;margin-top:16px}
+    .timer-adjust-btn{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.16);background:rgba(12,14,20,.75);color:#ffe8c8;font-size:22px;font-weight:700;cursor:pointer;transition:transform .18s ease,background .18s ease}
+    .timer-adjust-btn:hover{background:rgba(255,163,50,.22);transform:translateY(-1px)}
+    .timer-adjust-value{font-size:clamp(14px,1.3vw,16px);color:#ffcf7c;font-weight:700;letter-spacing:.13em;text-transform:uppercase;min-width:104px;text-align:center}
+    .ticker{margin-top:-8px;margin-bottom:-6px;border-radius:24px;overflow:hidden;background:linear-gradient(135deg,rgba(12,14,20,.94),rgba(35,20,10,.92));position:relative;height:clamp(70px,11vh,86px);display:flex;align-items:center;grid-area:ticker;border:1px solid rgba(255,255,255,.05);box-shadow:0 24px 40px rgba(0,0,0,.35);padding:10px 0}
+    .ticker::before{display:none}
+    .ticker-track{display:flex;gap:40px;white-space:nowrap;animation:ticker 42s linear infinite;padding:0 52px;font-weight:700;color:#ffe8c6;font-size:clamp(17px,1.4vw,21px);text-transform:uppercase;text-shadow:0 6px 20px rgba(0,0,0,.55)}
+    .ticker-track span{display:inline-flex;align-items:center;gap:10px;padding:6px 16px;border-radius:20px;background:rgba(255,255,255,.08);backdrop-filter:blur(6px);box-shadow:0 10px 20px rgba(0,0,0,.35)}
+    @keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+    .context-rail{margin-top:0;display:flex;flex-direction:column;gap:18px;position:relative;z-index:1;grid-area:context;align-self:stretch;height:100%}
+    .context-section{display:flex;flex-direction:column;gap:12px}
+    .context-section-head{font-size:clamp(15px,1.5vw,19px);letter-spacing:.2em;text-transform:uppercase;color:#9fb2d8;display:flex;align-items:center;gap:14px;text-shadow:0 6px 20px rgba(0,0,0,.45)}
+    .context-section-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(120,140,180,.4),rgba(120,140,180,0))}
+    .context-section-body{display:grid;grid-template-columns:1fr;gap:12px}
+    .context-rail .context-section-body:only-child{flex:1}
+    .context-card{display:flex;flex-direction:column;gap:10px;justify-content:center;border:1px solid rgba(255,255,255,.06);background:linear-gradient(155deg,rgba(18,20,32,.92),rgba(26,18,20,.9));border-radius:18px;padding:18px 22px;min-height:0;height:100%;opacity:0;transform:translateY(4px);transition:opacity .6s ease,transform .6s ease,box-shadow .6s ease;box-shadow:0 24px 32px rgba(0,0,0,.42)}
+    .context-card.is-highlight{box-shadow:0 0 0 1px rgba(255,170,70,.35),0 22px 40px rgba(255,120,0,.18)}
+    .context-card.active{opacity:1;transform:translateY(0)}
+    .context-card.context-card--fees{background:linear-gradient(160deg,rgba(46,30,14,.88),rgba(70,32,12,.86));border-color:rgba(255,170,70,.28);box-shadow:0 24px 34px rgba(255,150,60,.16);}
+    .context-section-body--health{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+    .context-card[data-context-static]{opacity:1;transform:translateY(0)}
+    .context-card--health{background:linear-gradient(155deg,rgba(16,22,36,.9),rgba(18,16,28,.9));border-color:rgba(140,170,255,.22);box-shadow:0 24px 34px rgba(20,30,60,.32)}
+    .context-card--health .context-value{font-size:clamp(24px,2.1vw,30px);font-weight:800;color:#fff2c8;text-shadow:0 8px 20px rgba(0,0,0,.55)}
+    .context-card--health .context-desc{font-size:clamp(13px,1.15vw,15px);color:#c2ccf0;text-shadow:0 4px 12px rgba(0,0,0,.4)}
+    .context-title{font-size:clamp(12px,1.1vw,13px);letter-spacing:.14em;text-transform:uppercase;color:#b7c5e8}
+    .context-value{font-size:clamp(24px,2.2vw,34px);font-weight:800;margin-top:10px;text-shadow:0 8px 26px rgba(0,0,0,.55)}
+    .context-card .value.big{font-size:clamp(46px,3.6vw,62px)}
+    .context-desc{font-size:clamp(14px,1.25vw,17px);color:#c4ceef;margin-top:12px;line-height:1.55;text-shadow:0 4px 14px rgba(0,0,0,.45)}
+    .cycle-stack{grid-area:cycle;display:flex;flex-direction:column;gap:14px;margin-top:0;height:100%;align-self:stretch;min-height:0}
+    .cycle-tape{margin:0;display:flex;gap:18px;overflow:hidden;position:relative;padding:22px 30px;color:#e5ebff;font-size:clamp(14px,1.3vw,18px);border:1px solid rgba(255,255,255,.05);border-radius:26px;background:linear-gradient(135deg,rgba(12,14,20,.95),rgba(32,18,12,.9));box-shadow:0 24px 40px rgba(0,0,0,.35);flex:1}
+    .cycle-track{display:flex;gap:16px}
+    .cycle-track.scroll{animation:cycleWalk 54s linear infinite}
+    @keyframes cycleWalk{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+    .cycle-chip{display:flex;align-items:center;gap:12px;padding:16px 28px;border-radius:999px;background:rgba(255,255,255,.08);box-shadow:0 10px 24px rgba(0,0,0,.4);white-space:nowrap;font-weight:700;color:#f7f9ff;font-size:clamp(16px,1.5vw,20px);text-shadow:0 6px 20px rgba(0,0,0,.55)}
+    .cycle-chip .chip-sep{opacity:.55}
+    .cycle-empty{opacity:.55;font-style:italic}
+    .dex-band{display:flex;align-items:center;justify-content:center;padding:24px 30px;border-radius:28px;background:linear-gradient(150deg,rgba(12,14,20,.95),rgba(38,20,10,.92));border:1px solid rgba(255,200,120,.24);cursor:pointer;transition:background .3s ease,border-color .3s ease,color .3s ease;letter-spacing:.26em;text-transform:uppercase;font-weight:800;font-size:clamp(19px,1.7vw,23px);color:#ffdda5;margin-top:auto;min-height:116px;text-shadow:0 10px 26px rgba(0,0,0,.55);box-shadow:0 28px 44px rgba(0,0,0,.36)}
+    .dex-band:hover{background:rgba(20,22,30,.95);border-color:rgba(255,200,120,.35)}
+    .dex-band.paid{border-color:rgba(120,255,190,.45);background:rgba(22,30,28,.92);color:#6cffb5}
+    .pepe-stage{grid-area:stage;min-height:320px}
+    .grid>.card{display:flex;flex-direction:column;gap:12px}
+    .wallet-card{display:flex;flex-direction:column;gap:18px}
+    .metric-timer{grid-area:timer}
+    .metric-stack{grid-area:stack;display:flex;flex-direction:column;height:100%}
+    .metric-stack-head{font-size:clamp(16px,1.7vw,20px);letter-spacing:.2em;text-transform:uppercase;color:#aab7d8;display:flex;align-items:center;gap:14px;margin-bottom:16px;text-shadow:0 6px 18px rgba(0,0,0,.45)}
+    .metric-stack-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(255,200,120,.35),rgba(255,200,120,0))}
+    .metric-stack-body{flex:1;display:flex;flex-direction:column;gap:14px}
+    .metric-stack-body .card{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;padding:clamp(22px,2.6vw,32px) clamp(22px,3.2vw,36px)}
+    .metric-stack-body .big{font-size:clamp(48px,3.8vw,70px);text-shadow:0 12px 30px rgba(0,0,0,.55)}
+    .metric-wallet{grid-area:wallet}
+    .wallet-snapshot{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:20px;margin-top:8px;font-size:clamp(16px,1.5vw,19px);color:#eef2ff}
+    .wallet-column{display:flex;flex-direction:column;gap:8px}
+    .wallet-title{font-size:clamp(13px,1.15vw,14px);letter-spacing:.2em;text-transform:uppercase;color:#bbc8e8;text-shadow:0 5px 16px rgba(0,0,0,.45)}
+    .wallet-row{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-radius:18px;background:rgba(255,255,255,.06);font-variant-numeric:tabular-nums;font-size:clamp(18px,2vw,23px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.05)}
+    .wallet-tag{font-size:clamp(12px,1.05vw,13px);letter-spacing:.16em;text-transform:uppercase;color:#c3ccec;text-shadow:0 4px 14px rgba(0,0,0,.4)}
+    .wallet-reserve{margin-top:6px;font-size:clamp(13px,1.15vw,15px);color:#ffdda5;letter-spacing:.1em;text-transform:uppercase;text-shadow:0 4px 14px rgba(0,0,0,.4)}
+    .fees-note{margin-top:6px;font-size:12px;color:#9aa5c7}
+    .ambient-layer{display:none}
+    .ambient-ember{position:absolute;width:20px;height:20px;border-radius:50%;pointer-events:none;background:rgba(255,160,60,.15);filter:blur(12px);opacity:.15;animation:float 18s linear infinite}
+    @keyframes float{0%{transform:translate3d(0,0,0);opacity:.35}50%{opacity:.8}100%{transform:translate3d(90px,-160px,0);opacity:.2}}
+    .glow,.flash,.shock{display:none}
+    .toast{position:fixed;left:50%;top:48%;transform:translate(-50%,-50%);font-weight:900;font-size:clamp(32px,4vw,56px);text-shadow:0 8px 32px rgba(0,0,0,.45),0 0 30px rgba(255,140,0,.35);opacity:0;pointer-events:none;padding:clamp(14px,2vw,18px) clamp(36px,4vw,52px);border-radius:36px;background:linear-gradient(135deg,rgba(16,18,26,.9),rgba(40,24,16,.82));border:1px solid rgba(255,180,90,.35);box-shadow:0 24px 60px rgba(0,0,0,.55);backdrop-filter:blur(6px);letter-spacing:.02em}
+    .toast.show{animation:toastUp 2.4s ease-out 1}
+    @keyframes toastUp{0%{opacity:0;transform:translate(-50%,-20%) scale(.9)}15%{opacity:1}70%{opacity:1;transform:translate(-50%,-55%) scale(1.02)}100%{opacity:0;transform:translate(-50%,-110%) scale(1.12)}}
+    @media (max-width:1280px){
+      .panel{grid-template-columns:1fr;grid-template-areas:"header" "metrics" "ticker" "context" "cycle";column-gap:0;row-gap:18px;padding:clamp(18px,3vw,24px) clamp(18px,5vw,32px)}
+      .header{flex-direction:column;align-items:flex-start;gap:18px}
+      .brand-wrap{flex-wrap:wrap;gap:18px}
+      .grid{grid-template-columns:1fr;grid-template-areas:"timer" "stack" "wallet";gap:16px}
+      .metric-stack{min-height:0}
+      .context-rail{height:auto}
+      .ticker-track{gap:36px;padding:0 32px}
+    }
+    @media (max-width:960px){
+      .panel{row-gap:16px}
+      .wrap{padding:clamp(16px,6vh,24px) clamp(12px,6vw,28px) clamp(20px,6vh,26px)}
+      .header{gap:14px}
+      .brand-wrap{flex-direction:column;align-items:flex-start;max-width:none}
+      .brand-info{flex-direction:column;align-items:flex-start;gap:10px;width:100%}
+      .brand-ca{justify-content:flex-start;margin-left:0}
+      .count-shell{width:clamp(180px,50vw,240px);height:clamp(180px,50vw,240px)}
+      .context-section{gap:10px}
+      .context-section-body{gap:10px}
+      .context-section-body--health{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+      .ticker{border-radius:20px}
+      .ticker-track{animation-duration:38s}
+    }
+    @media (max-width:640px){
+      .panel{padding:16px 14px;row-gap:14px}
+      .card{border-radius:22px}
+      .metric-stack-body{gap:12px}
+      .grid{gap:12px}
+      .wallet-snapshot{grid-template-columns:1fr}
+      .wallet-row{padding:10px 14px}
+      .ticker{height:clamp(52px,10vh,60px)}
+      .ticker-track{gap:24px;padding:0 20px}
+      .dex-band{padding:18px 20px;letter-spacing:.18em}
+    }
+    @media (max-width:480px){
+      .brand-wrap{gap:12px}
+      .brand-ca{flex-direction:column;align-items:flex-start;gap:6px;position:static}
+      .timer-adjust{gap:10px}
+      .timer-adjust-btn{width:40px;height:40px}
+      .count-shell{width:clamp(160px,72vw,210px);height:clamp(160px,72vw,210px)}
+      .ticker-track{animation-duration:44s}
+    }
+    canvas{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="burnGlow" class="burn-glow"></div>
+    <div class="panel-shell">
+      <div class="panel-scale">
+        <div class="panel">
+          <div class="header">
+            <div class="brand-wrap">
+          <div class="brand-info">
+            <div class="brand-label">DEFLATIONARY SOL</div>
+            <div class="brand-ca"><span class="brand-ca-label">CA</span><span class="brand-ca-value" id="tokenMintDisplay">—</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div id="status" class="pill">loading…</div>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="card metric-card metric-timer">
+          <div class="label">Next Burn In</div>
+          <div class="count-shell">
+            <div id="countRing" class="count-ring"></div>
+            <div id="countdown" class="value countdown">00:00</div>
+          </div>
+          <div id="countNote" class="count-note">Deflationary SOL is charging up…</div>
+          <div class="timer-adjust" role="group" aria-label="Cycle interval controls">
+            <button id="timerMinus" type="button" class="timer-adjust-btn" aria-label="Decrease cycle interval">-</button>
+            <div id="timerAdjustValue" class="timer-adjust-value">—</div>
+            <button id="timerPlus" type="button" class="timer-adjust-btn" aria-label="Increase cycle interval">+</button>
+          </div>
+        </div>
+        <div class="metric-stack">
+          <div class="metric-stack-head">Cycle Stats</div>
+          <div class="metric-stack-body">
+            <div class="card metric-card metric-card--accent metric-spend"><div class="label">Total SOL Spent</div><div id="fees" class="value big">0.000</div></div>
+            <div class="card metric-card metric-card--accent metric-total" id="totalCard"><div class="label">Total Burned (Token)</div><div id="burned" class="value big">0</div><div id="last" class="label">—</div></div>
+          </div>
+        </div>
+        <div class="card wallet-card metric-card metric-wallet">
+          <div class="label">Wallet Snapshot</div>
+          <div class="wallet-snapshot">
+            <div class="wallet-column">
+              <div class="wallet-title">SOL</div>
+              <div class="wallet-row"><span class="wallet-tag">before</span><span id="walletSolBefore">—</span></div>
+              <div class="wallet-row"><span class="wallet-tag">after</span><span id="walletSolAfter">—</span></div>
+              <div class="wallet-reserve" id="walletReserve">Reserve floor: —</div>
+            </div>
+            <div class="wallet-column">
+              <div class="wallet-title">Token</div>
+              <div class="wallet-row"><span class="wallet-tag">before</span><span id="walletTokenBefore">—</span></div>
+              <div class="wallet-row"><span class="wallet-tag">after</span><span id="walletTokenAfter">—</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="ticker" class="ticker"><div id="tickerTrack" class="ticker-track"></div></div>
+      <div class="cycle-stack">
+        <div id="cycleTape" class="cycle-tape"></div>
+        <button id="dexTile" type="button" class="dex-band">DEX PAID AT 40K</button>
+      </div>
+      <div class="pepe-stage" aria-hidden="true"></div>
+      <div id="contextRail" class="context-rail">
+        <div class="context-section">
+          <div class="context-section-head">Performance</div>
+          <div class="context-section-body">
+            <div class="context-card context-card--fees">
+              <div class="context-title">Creator Fees</div>
+              <div class="context-value value big" id="pendingFeesValue">—</div>
+              <div class="context-desc fees-note" id="pendingFeesNote">Waiting for next claim…</div>
+            </div>
+            <div class="context-card">
+              <div class="context-title">Next Milestone</div>
+              <div class="context-value" id="contextMilestone">—</div>
+              <div class="context-desc" id="contextMilestoneDesc">Waiting for data…</div>
+            </div>
+          </div>
+        </div>
+        <div class="context-section">
+          <div class="context-section-head">Market</div>
+          <div class="context-section-body">
+            <div class="context-card">
+              <div class="context-title">Price</div>
+              <div class="context-value" id="contextPrice">—</div>
+              <div class="context-desc" id="contextPriceDesc">Waiting for data…</div>
+            </div>
+            <div class="context-card">
+              <div class="context-title">Liquidity</div>
+              <div class="context-value" id="contextLiquidity">—</div>
+              <div class="context-desc" id="contextLiquidityDesc">Waiting for data…</div>
+            </div>
+          </div>
+        </div>
+        <div class="context-section context-section--health">
+          <div class="context-section-head">System Health</div>
+          <div class="context-section-body context-section-body--health">
+            <div class="context-card context-card--health" data-context-static="true">
+              <div class="context-title">Runtime</div>
+              <div class="context-value" id="healthRuntime">—</div>
+              <div class="context-desc" id="healthRuntimeDesc">Preparing cycle…</div>
+            </div>
+            <div class="context-card context-card--health" data-context-static="true">
+              <div class="context-title">RPC</div>
+              <div class="context-value" id="healthRpc">—</div>
+              <div class="context-desc" id="healthRpcDesc">Awaiting connection…</div>
+            </div>
+            <div class="context-card context-card--health" data-context-static="true">
+              <div class="context-title">PumpPortal</div>
+              <div class="context-value" id="healthPump">—</div>
+              <div class="context-desc" id="healthPumpDesc">Waiting for first claim…</div>
+            </div>
+            <div class="context-card context-card--health" data-context-static="true">
+              <div class="context-title">Wallet</div>
+              <div class="context-value" id="healthWallet">—</div>
+              <div class="context-desc" id="healthWalletDesc">Reserve floor 0.000 SOL</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+  <div id="glow" class="glow"></div><div id="flash" class="flash"></div><div id="shock" class="shock"></div>
+  <canvas id="shockwave"></canvas><canvas id="rays"></canvas><canvas id="lightning"></canvas><canvas id="ambient"></canvas><canvas id="embers"></canvas><canvas id="sparks"></canvas>
+  <div id="toast" class="toast" aria-live="polite">🔥 Burned 0 tokens 🔥</div>
+  <script>
+    (function(){
+      const KEY="abb_mock_mode";
+      const search=new URLSearchParams(window.location.search);
+      let mock=false;
+      if(search.get("mockMode")==="true"){mock=true;}
+      else if(search.get("mockMode")==="false"){mock=false;}
+      else if(window.location.hash.includes("mockMode")){mock=true;}
+      else if(localStorage.getItem(KEY)==="true"){mock=true;}
+      window.__ABB_MOCK_MODE__=mock;
+      window.__ABB_MOCK_STORAGE_KEY__=KEY;
+    })();
+  </script>
+  <script>
+    const $=id=>document.getElementById(id);
+    const panelEl=document.querySelector('.panel');
+    const panelShellEl=document.querySelector('.panel-shell');
+    const panelScaleEl=document.querySelector('.panel-scale');
+    const emberLayer=document.createElement('div');
+    emberLayer.className='ambient-layer';
+    if(panelShellEl){
+      panelShellEl.insertBefore(emberLayer,panelShellEl.firstChild||null);
+      const EMBER_COUNT=22;
+      for(let i=0;i<EMBER_COUNT;i++){
+        const ember=document.createElement('span');
+        ember.className='ambient-ember';
+        ember.style.left=`${Math.random()*100}%`;
+        ember.style.top=`${Math.random()*100}%`;
+        ember.style.animationDuration=`${16+Math.random()*16}s`;
+        ember.style.animationDelay=`${-Math.random()*14}s`;
+        ember.style.opacity=(0.28+Math.random()*0.35).toFixed(2);
+        ember.style.transform=`scale(${0.55+Math.random()*0.9})`;
+        emberLayer.appendChild(ember);
+      }
+    }
+    const statusEl=$('status');
+    const logEl=$('log');
+    const burnedEl=$('burned');
+    const lastEl=$('last');
+    const feesEl=$('fees');
+    const countRing=$('countRing');
+    const countNote=$('countNote');
+    const countdownEl=$('countdown');
+    const timerMinusBtn=$('timerMinus');
+    const timerPlusBtn=$('timerPlus');
+    const timerAdjustValueEl=$('timerAdjustValue');
+    const totalCard=$('totalCard');
+    const tickerTrack=$('tickerTrack');
+    const cycleTape=$('cycleTape');
+    const dexTile=$('dexTile');
+    const contextRail=$('contextRail');
+    const walletSolBeforeEl=$('walletSolBefore');
+    const walletSolAfterEl=$('walletSolAfter');
+    const walletTokenBeforeEl=$('walletTokenBefore');
+    const walletTokenAfterEl=$('walletTokenAfter');
+    const walletReserveEl=$('walletReserve');
+    const pendingFeesValueEl=$('pendingFeesValue');
+    const pendingFeesNoteEl=$('pendingFeesNote');
+    const healthWalletValueEl=$('healthWallet');
+    const healthWalletDescEl=$('healthWalletDesc');
+    const healthRuntimeValueEl=$('healthRuntime');
+    const healthRuntimeDescEl=$('healthRuntimeDesc');
+    const healthRpcValueEl=$('healthRpc');
+    const healthRpcDescEl=$('healthRpcDesc');
+    const healthPumpValueEl=$('healthPump');
+    const healthPumpDescEl=$('healthPumpDesc');
+    const burnGlowEl=$('burnGlow');
+    const toastEl=$('toast');
+    const prefersReducedMotion=typeof matchMedia==='function'?matchMedia('(prefers-reduced-motion: reduce)'):null;
+    const devicePixelRatioSafe=(typeof window!=='undefined'&&window.devicePixelRatio)||1;
+    const FX_ENABLED=!(prefersReducedMotion&&prefersReducedMotion.matches)&&devicePixelRatioSafe<=2.5;
+    if(!FX_ENABLED){console.info('[FX] Canvas-heavy visuals disabled to conserve performance');}
+    window.__ABB_FX_ENABLED__=FX_ENABLED;
+    const waveCanvas=FX_ENABLED?$('shockwave'):null;
+    const raysCanvas=FX_ENABLED?$('rays'):null;
+    const lightningCanvas=FX_ENABLED?$('lightning'):null;
+    const ambientCanvas=FX_ENABLED?$('ambient'):null;
+    const embersCanvas=FX_ENABLED?$('embers'):null;
+    const sparksCanvas=FX_ENABLED?$('sparks'):null;
+    const waveCtx=waveCanvas?waveCanvas.getContext('2d'):null;
+    const raysCtx=raysCanvas?raysCanvas.getContext('2d'):null;
+    const lightningCtx=lightningCanvas?lightningCanvas.getContext('2d'):null;
+    const ambientCtx=ambientCanvas?ambientCanvas.getContext('2d'):null;
+    const embersCtx=embersCanvas?embersCanvas.getContext('2d'):null;
+    const sparksCtx=sparksCanvas?sparksCanvas.getContext('2d'):null;
+    const CANVAS_OVERSCAN_X=1.6;
+    const CANVAS_OVERSCAN_Y=1.6;
+    let canvasWidth=window.innerWidth;
+    let canvasHeight=window.innerHeight;
+
+    let dexPaid=false;
+    if(dexTile){
+      dexTile.addEventListener('click',()=>{
+        dexPaid=!dexPaid;
+        dexTile.classList.toggle('paid',dexPaid);
+        dexTile.textContent=dexPaid?'✅ DEX PAID':'DEX PAID AT 40K';
+      });
+    }
+
+    let panelScaleRaf=null;
+    function applyPanelScale(){
+      if(!panelEl||!panelShellEl||!panelScaleEl){return;}
+      const shellWidth=panelShellEl.clientWidth;
+      const shellHeight=panelShellEl.clientHeight;
+      if(shellWidth===0||shellHeight===0){return;}
+      panelScaleEl.style.setProperty('--panel-scale',1);
+      const contentWidth=panelEl.offsetWidth;
+      const contentHeight=panelEl.offsetHeight;
+      if(contentWidth===0||contentHeight===0){return;}
+      const widthScale=shellWidth/contentWidth;
+      const heightScale=shellHeight/contentHeight;
+      let scale=Math.min(1,widthScale);
+      const minHeightForFullScale=860;
+      const allowHeightScale=shellWidth>=1280;
+      if(allowHeightScale&&shellHeight<minHeightForFullScale&&heightScale<1){
+        scale=Math.min(scale,heightScale);
+      }
+      panelScaleEl.style.setProperty('--panel-scale',Math.min(scale,1).toFixed(4));
+    }
+    function schedulePanelScale(){
+      if(panelScaleRaf){cancelAnimationFrame(panelScaleRaf);}
+      panelScaleRaf=requestAnimationFrame(()=>{panelScaleRaf=null;applyPanelScale();});
+    }
+    addEventListener('resize',schedulePanelScale);
+    if(typeof ResizeObserver!=="undefined"){
+      const resizeObserver=new ResizeObserver(()=>schedulePanelScale());
+      if(panelEl){resizeObserver.observe(panelEl);}
+      if(panelShellEl){resizeObserver.observe(panelShellEl);}
+    }
+    schedulePanelScale();
+
+    function log(message){
+      if(!logEl){return;}
+      const timestamp=new Date().toLocaleTimeString();
+      logEl.textContent+=`[${timestamp}] ${message}\n`;
+      logEl.scrollTop=logEl.scrollHeight;
+      schedulePanelScale();
+    }
+
+    function tween(el,to,ms=650,fmt=(x)=>x.toLocaleString(undefined,{maximumFractionDigits:2})){
+      if(!el){return;}
+      const kick=()=>{el.classList.remove('value-animate');void el.offsetWidth;el.classList.add('value-animate');};
+      kick();
+      const from=Number(el.dataset.val||el.textContent.replace(/,/g,''))||0;
+      const steps=Math.max(1,Math.floor(ms/33));
+      let i=0;
+      const id=setInterval(()=>{i++;const t=i/steps;const v=from+(to-from)*(0.5-Math.cos(Math.PI*t)/2);el.textContent=fmt(v);if(i>=steps){el.dataset.val=to;clearInterval(id);setTimeout(()=>el.classList.remove('value-animate'),480);}},33);
+    }
+
+    function playOnce(el){
+      if(!el)return;
+      el.classList.remove('show');
+      void el.offsetWidth;
+      el.classList.add('show');
+    }
+
+    let accBurn=0;
+    let lastBurnAmount=0;
+    const stats={totalToken:0,totalSol:0,burns:[]};
+    const LAMPORTS_PER_SOL_VIEW=1_000_000_000;
+    const walletSnapshotState={before:{sol:null,token:null},after:{sol:null,token:null}};
+    let walletReserveSol=null;
+
+    function currentTokenMint(){
+      return window.__burnToken || null;
+    }
+
+    function formatToken(value){
+      const v=Number(value)||0;
+      const abs=Math.abs(v);
+      if(abs>=1e9)return(v/1e9).toFixed(2)+'B';
+      if(abs>=1e6)return(v/1e6).toFixed(2)+'M';
+      if(abs>=1e3)return(v/1e3).toFixed(2)+'K';
+      if(abs>=1)return v.toFixed(2);
+      return v.toFixed(4);
+    }
+
+    function updateToastBurn(amount){
+      const display=formatToken(amount);
+      toastEl.textContent=`🔥 Burned ${display} tokens 🔥`;
+    }
+
+    function updateTotalSolDisplay(){
+      if(feesEl){feesEl.textContent=stats.totalSol.toLocaleString(undefined,{minimumFractionDigits:3,maximumFractionDigits:3});}
+    }
+
+    function formatSol(value){
+      const v=Number(value)||0;
+      if(v>=1000)return v.toFixed(0)+' SOL';
+      if(v>=10)return v.toFixed(1)+' SOL';
+      if(v>=1)return v.toFixed(2)+' SOL';
+      if(v>=0.01)return v.toFixed(3)+' SOL';
+      return v.toFixed(4)+' SOL';
+    }
+
+    function formatUsd(value){
+      const v=Number(value)||0;
+      if(v>=1e9)return'$'+(v/1e9).toFixed(2)+'B';
+      if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';
+      if(v>=1e3)return'$'+(v/1e3).toFixed(2)+'K';
+      if(v>=1)return'$'+v.toFixed(0);
+      if(v>0)return'$'+v.toFixed(2);
+      return '$0';
+    }
+
+    function formatRelative(ts){
+      const diff=Math.max(0,Math.floor((Date.now()-ts)/1000));
+      if(diff<1)return"just now";
+      if(diff<60)return `${diff}s ago`;
+      if(diff<3600){const m=Math.floor(diff/60);return `${m}m ago`;}
+      const hours=Math.floor(diff/3600);
+      if(hours<6){const mins=Math.floor((diff%3600)/60);return `${hours}h ${mins}m`;}
+      return new Date(ts).toLocaleTimeString();
+    }
+
+    const COUNTDOWN_CUES=[
+      {time:300,text:'Cycle loading — stay tuned'},
+      {time:240,text:'Deflationary SOL is soaking up liquidity…'},
+      {time:180,text:'Heat lamps priming the meme reactor'},
+      {time:150,text:'Pressure building across the vault'},
+      {time:120,text:'Frogs limber up for the floor flip'},
+      {time:90,text:'Deflation currents flowing — spam ⚡'},
+      {time:75,text:'Screenshots ready? Countdown enters the red'},
+      {time:60,text:'Deflationary SOL hits the one-minute boil'},
+      {time:45,text:'Gas valves opening, stand clear'},
+      {time:35,text:'Telemetry checks green across the board'},
+      {time:25,text:'Handlers brace for splash zone'},
+      {time:15,text:'Smell that smoke? Fry time soon'},
+      {time:8,text:'All eyes on the timer…'},
+      {time:5,text:'Light the match!'},{time:3,text:'Final seconds — all signal no noise'},{time:1,text:'Detonation!'}
+    ];
+    let lastCueMessage='';
+    let lastMinuteAnnounce=null;
+    function cueForRemaining(remaining){
+      let message='Gathering charge…';
+      if(stats.burns.length===0&&remaining>120)message='Deflationary SOL is priming the first spark…';
+      for(const cue of COUNTDOWN_CUES){
+        if(remaining<=cue.time){message=cue.text;break;}
+      }
+      return message;
+    }
+
+    function updateCycleTape(){
+      if(!cycleTape)return;
+      if(!stats.burns.length){cycleTape.innerHTML='<span class="cycle-empty">Deflationary SOL is stacking tinder—first roast coming soon.</span>';return;}
+      const entries=stats.burns.slice(-16);
+      const doubled=entries.concat(entries);
+      const scroll=entries.length>6;
+      const list=scroll?doubled:entries;
+      const scrollClass=scroll?'cycle-track scroll':'cycle-track';
+      cycleTape.innerHTML=`<div class="${scrollClass}">${list.map(b=>{
+        const rel=formatRelative(b.time);
+        return `<span class="cycle-chip" title="${b.sol.toFixed(3)} SOL">${formatToken(b.token)} tok<span class="chip-sep">•</span>${rel}</span>`;
+      }).join('')}</div>`;
+      schedulePanelScale();
+    }
+    function renderWalletSnapshot(){
+      if(walletSolBeforeEl){
+        walletSolBeforeEl.textContent=walletSnapshotState.before.sol!=null?formatSol(walletSnapshotState.before.sol):'—';
+      }
+      if(walletSolAfterEl){
+        walletSolAfterEl.textContent=walletSnapshotState.after.sol!=null?formatSol(walletSnapshotState.after.sol):'—';
+      }
+      if(walletTokenBeforeEl){
+        walletTokenBeforeEl.textContent=walletSnapshotState.before.token!=null?`${formatToken(walletSnapshotState.before.token)} tok`:'—';
+      }
+      if(walletTokenAfterEl){
+        walletTokenAfterEl.textContent=walletSnapshotState.after.token!=null?`${formatToken(walletSnapshotState.after.token)} tok`:'—';
+      }
+      if(walletReserveEl){
+        walletReserveEl.textContent=walletReserveSol!=null?`Reserve floor: ${formatSol(walletReserveSol)}`:'Reserve floor: —';
+      }
+      schedulePanelScale();
+    }
+
+    function updatePendingFeesDisplay(amountSol, note){
+      if(pendingFeesValueEl){
+        pendingFeesValueEl.textContent=Number.isFinite(amountSol)?formatSol(amountSol):'—';
+      }
+      if(pendingFeesNoteEl){
+        pendingFeesNoteEl.textContent=note||'';
+      }
+      schedulePanelScale();
+    }
+
+    function updateTicker(){
+      const now=Date.now();
+      const last24=stats.burns.filter(b=>now-b.time<=86400000);
+      const token24=last24.reduce((sum,b)=>sum+b.token,0);
+      const sol24=last24.reduce((sum,b)=>sum+b.sol,0);
+      const avgToken=stats.burns.length?stats.totalToken/stats.burns.length:0;
+      const avgSol=stats.burns.length?stats.totalSol/stats.burns.length:0;
+      const items=[
+        `Total Burned: ${formatToken(stats.totalToken)} tokens`,
+        `SOL Spent: ${stats.totalSol.toFixed(3)} SOL`,
+        `24h Burn: ${formatToken(token24)} tokens · ${sol24.toFixed(3)} SOL`,
+        stats.burns.length?`Avg Cycle: ${formatToken(avgToken)} tokens · ${avgSol.toFixed(3)} SOL`:'Awaiting first burn'
+      ];
+      tickerTrack.innerHTML=items.concat(items).map(text=>`<span>${text}</span>`).join('');
+      schedulePanelScale();
+    }
+
+    function recordBurn(sol,tok){
+      const token=Number(tok)||0;
+      const solSpent=Number(sol)||0;
+      stats.totalToken+=token;
+      stats.totalSol+=solSpent;
+      if(token||solSpent){
+        stats.burns.push({time:Date.now(),token,sol:solSpent});
+        if(stats.burns.length>60)stats.burns.shift();
+      }
+      updateTicker();
+      updateContextInsights();
+      updateCycleTape();
+      updateTotalSolDisplay();
+      schedulePanelScale();
+    }
+
+    const contextSlots=Array.from(contextRail.querySelectorAll('.context-card:not([data-context-static])')).map(card=>({
+      card,
+      title:card.querySelector('.context-title'),
+      value:card.querySelector('.context-value'),
+      desc:card.querySelector('.context-desc')
+    }));
+    let contextDeck=[
+      {title:'Charge Status',value:'Warming up',desc:'Deflationary SOL awaits fresh liquidity'},
+      {title:'Recent Output',value:'—',desc:'Burn metrics land after the first cycle'},
+      {title:'Rewards Queue',value:'—',desc:'Creator fees update when cycles fire'},
+      {title:'Top Conductor',value:'—',desc:'Community spotlight coming soon'}
+    ];
+    let contextIndex=0;
+    let contextOverride=false;
+    let contextHighlightIndex=0;
+    function renderContextCards(){
+      contextSlots.forEach((slot,idx)=>{
+        slot.card.classList.remove('is-highlight');
+        slot.card.classList.remove('active');
+        const data=contextDeck[(contextIndex+idx)%contextDeck.length]||contextDeck[0];
+        setTimeout(()=>{
+          slot.title.textContent=data.title||'—';
+          slot.value.textContent=data.value||'—';
+          slot.desc.textContent=data.desc||'';
+          slot.card.classList.add('active');
+          if((contextIndex+idx)%contextDeck.length===contextHighlightIndex%contextDeck.length){
+            slot.card.classList.add('is-highlight');
+          }
+        },80+idx*80);
+      });
+      schedulePanelScale();
+    }
+
+    function updateContextInsights(){
+      if(contextOverride||!stats.burns.length)return;
+      const now=Date.now();
+      const recentHour=stats.burns.filter(b=>now-b.time<=3600000);
+      const hourTokens=recentHour.reduce((sum,b)=>sum+b.token,0);
+      const hourSol=recentHour.reduce((sum,b)=>sum+b.sol,0);
+      const latest=stats.burns[stats.burns.length-1];
+      const biggest=stats.burns.reduce((max,b)=>b.token>max.token?b:max,stats.burns[0]);
+      const avgTok=stats.burns.length?stats.totalToken/stats.burns.length:0;
+      const avgSol=stats.burns.length?stats.totalSol/stats.burns.length:0;
+      contextDeck=[
+        {title:'Latest Burn',value:`${formatToken(latest.token)} tokens`,desc:`${latest.sol.toFixed(3)} SOL at ${new Date(latest.time).toLocaleTimeString()}`},
+        {title:'1h Pace',value:`${formatToken(hourTokens)} tokens`,desc:`${hourSol.toFixed(3)} SOL in last hour`},
+        {title:'Record Cycle',value:`${formatToken(biggest.token)} tokens`,desc:`From ${stats.burns.length} total cycles`},
+        {title:'Average Cycle',value:`${formatToken(avgTok)} tokens`,desc:`${avgSol.toFixed(3)} SOL each burn`}
+      ];
+      contextIndex=0;
+      contextHighlightIndex=(contextHighlightIndex+1)%Math.max(1,contextDeck.length);
+      renderContextCards();
+      schedulePanelScale();
+    }
+
+    const runtimeHealthState={queued:null};
+
+    function setHealthCard(valueEl,descEl,value,desc){
+      if(valueEl){valueEl.textContent=value!=null?value:'—';}
+      if(descEl){descEl.textContent=desc!=null?desc:'';}
+      schedulePanelScale();
+    }
+
+    function setHealthRuntime(value,desc){
+      runtimeHealthState.current={value,desc};
+      setHealthCard(healthRuntimeValueEl,healthRuntimeDescEl,value,desc);
+    }
+
+    function setHealthRpc(value,desc){
+      setHealthCard(healthRpcValueEl,healthRpcDescEl,value,desc);
+    }
+
+    function setHealthPump(value,desc){
+      setHealthCard(healthPumpValueEl,healthPumpDescEl,value,desc);
+    }
+
+    function setHealthWallet({totalSol=null,spendableSol=null,reserveSol=null}){
+      if(!healthWalletValueEl||!healthWalletDescEl){return;}
+      const reserveBase=typeof window.__ABB_RESERVE_SOL__==='number'?window.__ABB_RESERVE_SOL__:0;
+      if(totalSol==null){
+        healthWalletValueEl.textContent='—';
+        healthWalletDescEl.textContent=`Reserve floor ${reserveBase.toFixed(3)} SOL`;
+        return;
+      }
+      const spendableText=spendableSol!=null?`${spendableSol.toFixed(3)} SOL spendable`:'Calculating…';
+      healthWalletValueEl.textContent=`${totalSol.toFixed(3)} SOL`;
+      const reserveValue=reserveSol!=null?reserveSol:reserveBase;
+      const reserveText=`Reserve floor ${reserveValue.toFixed(3)} SOL`;
+      healthWalletDescEl.textContent=`${spendableText} · ${reserveText}`;
+      schedulePanelScale();
+    }
+
+    function queueRuntimeStatus(value,detail){
+      runtimeHealthState.queued={value,detail};
+    }
+
+    function consumeQueuedRuntimeStatus(){
+      const queued=runtimeHealthState.queued;
+      runtimeHealthState.queued=null;
+      return queued;
+    }
+
+    function formatDelay(ms){
+      const seconds=Math.max(0,Math.round(ms/1000));
+      if(seconds>=3600){
+        const h=Math.floor(seconds/3600);
+        const m=Math.floor((seconds%3600)/60);
+        return m?`${h}h ${m}m`:`${h}h`;
+      }
+      if(seconds>=60){
+        const m=Math.floor(seconds/60);
+        const s=seconds%60;
+        return s?`${m}m ${s}s`:`${m}m`;
+      }
+      return `${seconds}s`;
+    }
+
+    const healthBridgeInstance={
+      setRuntime:setHealthRuntime,
+      setRpc:setHealthRpc,
+      setPump:setHealthPump,
+      queueRuntimeStatus,
+      consumeQueuedRuntimeStatus,
+      setWallet:setHealthWallet,
+      setInitial(){
+        setHealthRuntime('Initializing','Preparing cycle controls…');
+        setHealthRpc('Idle','Awaiting connection…');
+        setHealthPump('Idle','Waiting for first claim…');
+        const reserve=(typeof window.__ABB_RESERVE_SOL__==='number'?window.__ABB_RESERVE_SOL__:0);
+        setHealthWallet({totalSol:reserve,spendableSol:0,reserveSol:reserve});
+      }
+    };
+    healthBridgeInstance.setInitial();
+    window.__ABB_HEALTH_BRIDGE__=healthBridgeInstance;
+
+    const uiCycleConfig=window.__ABB_CYCLE_CONFIG__||(window.__ABB_CYCLE_CONFIG__={
+      default:30,
+      min:30,
+      max:1800,
+      step:30
+    });
+    let cycleSeconds=uiCycleConfig.current||uiCycleConfig.default||30;
+
+    function describeCycle(seconds){
+      const mins=Math.floor(seconds/60);
+      const secs=seconds%60;
+      if(mins&&secs){return `${mins}m ${secs}s`;}
+      if(mins){return `${mins}m`;}
+      return `${secs}s`;
+    }
+
+    function updateCycleSecondsUI(nextSeconds,{reset=true,announce=false}={}){
+      if(!Number.isFinite(nextSeconds)){return cycleSeconds;}
+      cycleSeconds=nextSeconds;
+      if(uiCycleConfig){uiCycleConfig.current=cycleSeconds;}
+      if(timerAdjustValueEl){
+        timerAdjustValueEl.textContent=describeCycle(cycleSeconds);
+      }
+      if(reset){resetCountdown(cycleSeconds);}
+      if(announce){
+        log(`[UI] Cycle interval set to ${describeCycle(cycleSeconds)} (${cycleSeconds}s)`);
+        console.info("[ABB] Cycle interval",cycleSeconds,"seconds");
+      }
+      return cycleSeconds;
+    }
+
+    window.__ABB_UPDATE_CYCLE_UI__=updateCycleSecondsUI;
+
+    function adjustCycleSeconds(delta){
+      const setter=window.__ABB_TEST_HOOKS__?.setCycle;
+      const target=cycleSeconds+delta;
+      if(typeof setter==="function"){
+        const result=setter(target);
+        if(!Number.isFinite(result)){
+          console.warn("[ABB] Cycle adjust ignored (invalid response)");
+        }
+      }else{
+        const min=uiCycleConfig.min||30;
+        const max=uiCycleConfig.max||1800;
+        const fallback=Math.min(max,Math.max(min,target));
+        const changed=fallback!==cycleSeconds;
+        updateCycleSecondsUI(fallback,{announce:changed});
+        console.warn("[ABB] Cycle adjust fallback applied (logic runtime not ready)");
+      }
+    }
+
+    let nextAt=Date.now()+cycleSeconds*1000;
+    let lastCountdownPulse=0;
+    let countdownTriggered=false;
+    const runtime=window.__ABB_RUNTIME__||(window.__ABB_RUNTIME__={timerHandle:null,cycleInFlight:false,demoMode:false,retryDelayMs:0});
+
+    if(timerAdjustValueEl){timerAdjustValueEl.textContent=describeCycle(cycleSeconds);}
+    if(timerMinusBtn){timerMinusBtn.addEventListener('click',()=>adjustCycleSeconds(-(uiCycleConfig.step||30)));}
+    if(timerPlusBtn){timerPlusBtn.addEventListener('click',()=>adjustCycleSeconds(uiCycleConfig.step||30));}
+
+    function updateCountdown(){
+      const remaining=Math.max(0,Math.floor((nextAt-Date.now())/1000));
+      const mins=String(Math.floor(remaining/60)).padStart(2,'0');
+      const secs=String(remaining%60).padStart(2,'0');
+      countdownEl.textContent=`${mins}:${secs}`;
+      countdownEl.setAttribute('aria-label',`Next burn in ${parseInt(mins,10)} minute${mins!='01'?'s':''} ${parseInt(secs,10)} second${secs!='01'?'s':''}`);
+
+      const progress=cycleSeconds?Math.min(1,Math.max(0,(cycleSeconds-remaining)/cycleSeconds)):0;
+      if(countRing){
+        const angle=`${Math.min(359.9,Math.max(0,progress*360)).toFixed(1)}deg`;
+        countRing.style.setProperty('--angle',angle);
+        if(remaining<=15){countRing.classList.add('danger');}else{countRing.classList.remove('danger');}
+      }
+
+      const cue=cueForRemaining(remaining);
+      if(countNote && cue!==lastCueMessage){
+        countNote.textContent=cue;
+        lastCueMessage=cue;
+      }
+
+      if(remaining===0){
+        lastMinuteAnnounce=null;
+      }
+
+      if(remaining===0&&!countdownTriggered){
+        countdownTriggered=true;
+      if(runtime.timerHandle){clearTimeout(runtime.timerHandle);runtime.timerHandle=null;}
+        if(!runtime.cycleInFlight){
+          const runner=runtime.demoMode?window.__ABB_DEMO_RUN_CYCLE__:window.__ABB_RUN_CYCLE__;
+          if(typeof runner==="function"){runner();}
+        }
+      }
+    }
+    setInterval(updateCountdown,250);
+    function resetCountdown(delaySeconds=cycleSeconds){
+      nextAt=Date.now()+delaySeconds*1000;
+      countdownTriggered=false;
+      lastCueMessage='';
+      lastMinuteAnnounce=null;
+      if(countRing){countRing.classList.remove('pop','danger');}
+      updateCountdown();
+    }
+    function pulseCountdownImmediate(){}
+
+    function resizeCanvases(){
+      if(!FX_ENABLED){return;}
+      const canvases=[waveCanvas,raysCanvas,lightningCanvas,ambientCanvas,embersCanvas,sparksCanvas].filter(Boolean);
+      if(!canvases.length){return;}
+      const w=Math.round(innerWidth*(1+CANVAS_OVERSCAN_X));
+      const h=Math.round(innerHeight*(1+CANVAS_OVERSCAN_Y));
+      const cssW=`${(1+CANVAS_OVERSCAN_X)*100}vw`;
+      const cssH=`${(1+CANVAS_OVERSCAN_Y)*100}vh`;
+      canvasWidth=w;
+      canvasHeight=h;
+      canvases.forEach(c=>{
+        c.width=w;
+        c.height=h;
+        c.style.width=cssW;
+        c.style.height=cssH;
+      });
+    }
+    addEventListener('resize',resizeCanvases);
+
+    const ambientParticles=[];
+    function spawnAmbientParticle(){
+      if(!ambientCanvas){return null;}
+      const w=ambientCanvas.width;
+      const h=ambientCanvas.height;
+      const fromLeft=Math.random()<0.5;
+      return{
+        x:fromLeft?Math.random()*160:w-Math.random()*160,
+        y:h-Math.random()*220,
+        vx:(Math.random()-0.5)*30,
+        vy:-(30+Math.random()*40),
+        radius:14+Math.random()*18,
+        life:14000+Math.random()*9000,
+        age:0,
+        hue:18+Math.random()*22
+      };
+    }
+    function initAmbient(count=18){
+      if(!FX_ENABLED||!ambientCanvas||!ambientCtx){return;}
+      ambientParticles.length=0;
+      for(let i=0;i<count;i++){ambientParticles.push(spawnAmbientParticle());}
+    }
+    let lastAmbientTs=performance.now();
+    function ambientFrame(now){
+      if(!FX_ENABLED||!ambientCanvas||!ambientCtx){return;}
+      const dt=(now-lastAmbientTs)/1000;
+      lastAmbientTs=now;
+      const w=ambientCanvas.width;
+      const h=ambientCanvas.height;
+      ambientCtx.clearRect(0,0,w,h);
+      for(const p of ambientParticles){
+        p.age+=dt*1000;
+        if(p.age>=p.life||p.y<-160){
+          const next=spawnAmbientParticle();
+          if(!next){continue;}
+          Object.assign(p,next);
+        }
+        p.x+=p.vx*dt;
+        p.y+=p.vy*dt;
+        const fade=Math.max(0,1-p.age/p.life);
+        const radius=p.radius*(0.7+0.6*fade);
+        const grad=ambientCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,radius);
+        grad.addColorStop(0,`hsla(${p.hue},95%,62%,0)`);
+        grad.addColorStop(.4,`hsla(${p.hue},95%,60%,${0.3*fade})`);
+        grad.addColorStop(1,'rgba(0,0,0,0)');
+        ambientCtx.beginPath();
+        ambientCtx.fillStyle=grad;
+        ambientCtx.arc(p.x,p.y,radius,0,Math.PI*2);
+        ambientCtx.fill();
+      }
+      ambientCtx.save();
+      ambientCtx.globalCompositeOperation='destination-out';
+      const mask=ambientCtx.createRadialGradient(w/2,h/2+40,0,w/2,h/2+40,64);
+      mask.addColorStop(0,'rgba(0,0,0,1)');
+      mask.addColorStop(1,'rgba(0,0,0,0)');
+      ambientCtx.fillStyle=mask;
+      ambientCtx.beginPath();
+      ambientCtx.arc(w/2,h/2+40,64,0,Math.PI*2);
+      ambientCtx.fill();
+      ambientCtx.restore();
+      requestAnimationFrame(ambientFrame);
+    }
+
+    function animateShockwave(cx,cy,{duration=1400,radiusScale=0.92,lineWidthBase=32,alpha=0.24}={}){
+      if(!FX_ENABLED||!waveCanvas||!waveCtx){return;}
+      const start=performance.now();
+      function frame(now){
+        const t=Math.min(1,(now-start)/duration);
+        waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);
+        if(t>=1)return;
+        const eased=t*t*(3-2*t);
+        const radius=120+eased*Math.max(waveCanvas.width,waveCanvas.height)*radiusScale;
+        waveCtx.save();
+        waveCtx.globalCompositeOperation='lighter';
+        waveCtx.lineWidth=lineWidthBase*(1-eased)+2;
+        waveCtx.strokeStyle=`rgba(255,210,160,${alpha*(1-eased)})`;
+        waveCtx.beginPath();
+        waveCtx.arc(cx,cy,radius,0,Math.PI*2);
+        waveCtx.stroke();
+        waveCtx.restore();
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function runRays(cx,cy,{count=36,widthMin=0.18,widthMax=0.34,radiusBase=110,radiusRange=170,speedBase=60,speedRange=90,alpha=0.32,lineWidthBase=10,lineWidthRange=28}={}){
+      if(!FX_ENABLED||!raysCanvas||!raysCtx){return;}
+      const beams=Array.from({length:count},()=>({angle:Math.random()*Math.PI*2,width:widthMin+Math.random()*(widthMax-widthMin),radius:radiusBase+Math.random()*radiusRange,speed:speedBase+Math.random()*speedRange,life:780+Math.random()*620,ttl:780+Math.random()*620}));
+      let prev=performance.now();
+      function frame(now){
+        const dt=now-prev;
+        prev=now;
+        raysCtx.clearRect(0,0,raysCanvas.width,raysCanvas.height);
+        raysCtx.globalCompositeOperation='lighter';
+        let alive=false;
+        for(const b of beams){
+          b.ttl-=dt;
+          if(b.ttl<=0)continue;
+          alive=true;
+          const t=b.ttl/b.life;
+          const fade=1-Math.max(0,Math.min(1,t));
+          b.radius+=b.speed*(dt/12);
+          const lw=lineWidthBase+lineWidthRange*fade;
+          raysCtx.strokeStyle=`rgba(255,190,120,${alpha*fade})`;
+          raysCtx.lineWidth=lw;
+          raysCtx.beginPath();
+          raysCtx.arc(cx,cy,b.radius,b.angle-b.width,b.angle+b.width);
+          raysCtx.stroke();
+        }
+        raysCtx.save();
+        raysCtx.globalCompositeOperation='destination-out';
+        const mask=raysCtx.createRadialGradient(cx,cy,0,cx,cy,60);
+        mask.addColorStop(0,'rgba(0,0,0,1)');
+        mask.addColorStop(1,'rgba(0,0,0,0)');
+        raysCtx.fillStyle=mask;
+        raysCtx.beginPath();
+        raysCtx.arc(cx,cy,60,0,Math.PI*2);
+        raysCtx.fill();
+        raysCtx.restore();
+        raysCtx.globalCompositeOperation='source-over';
+        if(alive){requestAnimationFrame(frame);}else{raysCtx.clearRect(0,0,raysCanvas.width,raysCanvas.height);}
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function createBolt(startX,startY,endX,endY,segments=8){
+      const w=lightningCanvas.width;
+      const points=[{x:startX,y:startY}];
+      for(let i=1;i<segments;i++){
+        const t=i/segments;
+        const spread=(1-t)*w*0.22;
+        points.push({
+          x:startX+(endX-startX)*t+(Math.random()-0.5)*spread,
+          y:startY+(endY-startY)*t+(Math.random()-0.5)*140
+        });
+      }
+      points.push({
+        x: endX,
+        y: endY
+      });
+      const life=220+Math.random()*260;
+      return {points,life,ttl:life};
+    }
+
+    function runLightning(cx,cy){
+      if(!FX_ENABLED||!lightningCanvas||!lightningCtx){return;}
+      const bolts=[];
+      const w=lightningCanvas.width;
+      const h=lightningCanvas.height;
+      const topY=Math.max(0,cy-380);
+      const boltCount=4;
+      for(let i=0;i<boltCount;i++){
+        const startX=Math.random()*w;
+        const endX=Math.random()*w;
+        const segments=10+Math.floor(Math.random()*4);
+        const bolt=createBolt(startX,topY+(Math.random()*120),endX,cy+(Math.random()*80),segments);
+        bolts.push(bolt);
+        if(Math.random()<0.55){
+          const forks=1+Math.floor(Math.random()*1);
+          for(let f=0;f<forks;f++){
+            const branch=createBolt((startX+endX)/2,cy,Math.random()*w,cy+200+(Math.random()*160),6+Math.floor(Math.random()*4));
+            branch.life=bolt.life*(0.5+Math.random()*0.3);
+            branch.ttl=branch.life;
+            bolts.push(branch);
+          }
+        }
+      }
+      let prev=performance.now();
+      function frame(now){
+        const dt=now-prev;
+        prev=now;
+        lightningCtx.clearRect(0,0,w,h);
+        lightningCtx.globalCompositeOperation='screen';
+        let alive=false;
+        for(const bolt of bolts){
+          bolt.ttl-=dt;
+          if(bolt.ttl<=0)continue;
+          alive=true;
+          const alpha=Math.max(0,bolt.ttl/bolt.life);
+          const jitter=(1-alpha)*18;
+          lightningCtx.save();
+          lightningCtx.translate((Math.random()-0.5)*jitter,(Math.random()-0.5)*jitter);
+          lightningCtx.strokeStyle=`rgba(230,248,255,${0.6*alpha})`;
+          lightningCtx.lineWidth=2.6*alpha;
+          lightningCtx.beginPath();
+          lightningCtx.moveTo(bolt.points[0].x, bolt.points[0].y);
+          for(let i=1;i<bolt.points.length;i++){
+            lightningCtx.lineTo(bolt.points[i].x, bolt.points[i].y);
+          }
+          lightningCtx.stroke();
+          if(alpha>0.25){
+            lightningCtx.strokeStyle=`rgba(80,180,255,${0.18*alpha})`;
+            lightningCtx.lineWidth=5.4*alpha;
+            lightningCtx.stroke();
+          }
+          lightningCtx.restore();
+        }
+        lightningCtx.globalCompositeOperation='source-over';
+        if(alive){requestAnimationFrame(frame);}else{lightningCtx.clearRect(0,0,w,h);}
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function runEmbers(cx,cy){
+      if(!FX_ENABLED||!embersCanvas||!embersCtx){return;}
+      const particles=Array.from({length:240},()=>({x:cx,y:cy,vx:(Math.random()-0.5)*220,vy:-Math.random()*260-90,life:1000+Math.random()*1100,ttl:1000+Math.random()*1100,size:30+Math.random()*52,hue:18+Math.random()*35}));
+      let prev=performance.now();
+      function frame(now){
+        const dt=now-prev;
+        prev=now;
+        embersCtx.clearRect(0,0,embersCanvas.width,embersCanvas.height);
+        let alive=false;
+        for(const p of particles){
+          p.ttl-=dt;
+          if(p.ttl<=0)continue;
+          alive=true;
+          const t=p.ttl/p.life;
+          if(t>0.92)continue;
+          const fade=1-Math.max(0,Math.min(1,t));
+          p.x+=p.vx*(dt/700);
+          p.y+=p.vy*(dt/780);
+          p.vy+=0.12;
+          const radius=p.size*(0.45+1.6*fade);
+          const grad=embersCtx.createRadialGradient(p.x,p.y,0,p.x,p.y,radius);
+          grad.addColorStop(0,`hsla(${p.hue},96%,60%,0)`);
+          grad.addColorStop(.24,`hsla(${p.hue},96%,60%,${0.62*fade})`);
+          grad.addColorStop(.58,`hsla(${p.hue+14},96%,58%,${0.34*fade})`);
+          grad.addColorStop(1,'rgba(0,0,0,0)');
+          embersCtx.beginPath();
+          embersCtx.fillStyle=grad;
+          embersCtx.arc(p.x,p.y,radius,0,Math.PI*2);
+          embersCtx.fill();
+        }
+        embersCtx.save();
+        embersCtx.globalCompositeOperation='destination-out';
+        const mask=embersCtx.createRadialGradient(cx,cy,0,cx,cy,62);
+        mask.addColorStop(0,'rgba(0,0,0,1)');
+        mask.addColorStop(1,'rgba(0,0,0,0)');
+        embersCtx.fillStyle=mask;
+        embersCtx.beginPath();
+        embersCtx.arc(cx,cy,62,0,Math.PI*2);
+        embersCtx.fill();
+        embersCtx.restore();
+        if(alive){requestAnimationFrame(frame);}else{embersCtx.clearRect(0,0,embersCanvas.width,embersCanvas.height);}
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function runSparks(cx,cy){
+      if(!FX_ENABLED||!sparksCanvas||!sparksCtx){return;}
+      const sparks=Array.from({length:180},()=>({x:cx,y:cy,vx:(Math.random()-0.5)*640,vy:-Math.random()*640,life:520+Math.random()*640,ttl:520+Math.random()*640,spin:(Math.random()-.5)*0.14}));
+      let prev=performance.now();
+      function frame(now){
+        const dt=now-prev;
+        prev=now;
+        sparksCtx.clearRect(0,0,sparksCanvas.width,sparksCanvas.height);
+        sparksCtx.globalCompositeOperation='lighter';
+        let alive=false;
+        for(const s of sparks){
+          s.ttl-=dt;
+          if(s.ttl<=0)continue;
+          alive=true;
+          const t=s.ttl/s.life;
+          if(t>0.95)continue;
+          const fade=1-Math.max(0,Math.min(1,t));
+          s.x+=s.vx*(dt/720);
+          s.y+=s.vy*(dt/760);
+          s.vy+=0.22;
+          s.vx+=s.spin*dt;
+          const alpha=Math.max(0,fade);
+          sparksCtx.strokeStyle=`rgba(255,230,150,${0.74*alpha})`;
+          sparksCtx.lineWidth=1.5+2.8*alpha;
+          sparksCtx.beginPath();
+          sparksCtx.moveTo(s.x,s.y);
+          sparksCtx.lineTo(s.x-s.vx*0.036,s.y-s.vy*0.036);
+          sparksCtx.stroke();
+        }
+        sparksCtx.save();
+        sparksCtx.globalCompositeOperation='destination-out';
+        const mask=sparksCtx.createRadialGradient(cx,cy,0,cx,cy,60);
+        mask.addColorStop(0,'rgba(0,0,0,1)');
+        mask.addColorStop(1,'rgba(0,0,0,0)');
+        sparksCtx.fillStyle=mask;
+        sparksCtx.beginPath();
+        sparksCtx.arc(cx,cy,60,0,Math.PI*2);
+        sparksCtx.fill();
+        sparksCtx.restore();
+        sparksCtx.globalCompositeOperation='source-over';
+        if(alive){requestAnimationFrame(frame);}else{sparksCtx.clearRect(0,0,sparksCanvas.width,sparksCanvas.height);}
+      }
+      requestAnimationFrame(frame);
+    }
+
+    function subtleBurst(){ }
+
+    function releaseBurst(cx,cy){
+      if(!FX_ENABLED){return;}
+      animateShockwave(cx,cy);
+      runRays(cx,cy);
+      runLightning(cx,cy);
+      runEmbers(cx,cy);
+      runSparks(cx,cy);
+      setTimeout(()=>{
+        if(embersCtx&&embersCanvas){embersCtx.clearRect(0,0,embersCanvas.width,embersCanvas.height);}
+        if(sparksCtx&&sparksCanvas){sparksCtx.clearRect(0,0,sparksCanvas.width,sparksCanvas.height);}
+        if(raysCtx&&raysCanvas){raysCtx.clearRect(0,0,raysCanvas.width,raysCanvas.height);}
+        if(waveCtx&&waveCanvas){waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);}
+        if(lightningCtx&&lightningCanvas){lightningCtx.clearRect(0,0,lightningCanvas.width,lightningCanvas.height);}
+      },960);
+    }
+
+    function getSilentAudioURL(){
+      if(getSilentAudioURL.url){return getSilentAudioURL.url;}
+      const sampleRate=44100;
+      const duration=0.2;
+      const frameCount=Math.max(1,Math.floor(duration*sampleRate));
+      const bytesPerSample=2;
+      const channels=1;
+      const blockAlign=channels*bytesPerSample;
+      const byteRate=sampleRate*blockAlign;
+      const dataSize=frameCount*bytesPerSample;
+      const buffer=new ArrayBuffer(44+dataSize);
+      const view=new DataView(buffer);
+      let offset=0;
+      const writeString=str=>{for(let i=0;i<str.length;i++){view.setUint8(offset++,str.charCodeAt(i));}};
+      const writeUint32=v=>{view.setUint32(offset,v,true);offset+=4;};
+      const writeUint16=v=>{view.setUint16(offset,v,true);offset+=2;};
+      writeString('RIFF');
+      writeUint32(36+dataSize);
+      writeString('WAVE');
+      writeString('fmt ');
+      writeUint32(16);
+      writeUint16(1);
+      writeUint16(channels);
+      writeUint32(sampleRate);
+      writeUint32(byteRate);
+      writeUint16(blockAlign);
+      writeUint16(bytesPerSample*8);
+      writeString('data');
+      writeUint32(dataSize);
+      // Data section is already zero (silence)
+      const blob=new Blob([buffer],{type:'audio/wav'});
+      getSilentAudioURL.url=URL.createObjectURL(blob);
+      window.addEventListener('beforeunload',()=>{if(getSilentAudioURL.url){URL.revokeObjectURL(getSilentAudioURL.url);}});
+      return getSilentAudioURL.url;
+    }
+
+    let audioReadyPromise=null;
+    async function ensureAudioCtx(){
+      const AudioCtx=window.AudioContext||window.webkitAudioContext;
+      if(!AudioCtx){return null;}
+      if(playAudio.ctx && playAudio.ctx.state==="running"){return playAudio.ctx;}
+      if(!playAudio.ctx){
+        try{
+          playAudio.ctx=new AudioCtx({latencyHint:"interactive"});
+        }catch{
+          playAudio.ctx=new AudioCtx();
+        }
+      }
+      const ctx=playAudio.ctx;
+      if(ctx.state==="running"){return ctx;}
+      if(!audioReadyPromise){
+        audioReadyPromise=(async()=>{
+          try{
+            await new Promise(resolve=>{
+              const bridge=document.createElement('audio');
+              const cleanup=()=>{
+                bridge.pause();
+                bridge.removeAttribute('src');
+                bridge.load();
+                bridge.remove();
+              };
+              bridge.muted=true;
+              bridge.playsInline=true;
+              bridge.autoplay=true;
+              bridge.preload='auto';
+              bridge.src=getSilentAudioURL();
+              bridge.style.cssText='position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
+              const finish=async()=>{
+                bridge.removeEventListener('playing',finish);
+                bridge.removeEventListener('error',fail);
+                try{await ctx.resume();}catch{}
+                cleanup();
+                resolve();
+              };
+              const fail=()=>{
+                bridge.removeEventListener('playing',finish);
+                bridge.removeEventListener('error',fail);
+                cleanup();
+                resolve();
+              };
+              bridge.addEventListener('playing',finish,{once:true});
+              bridge.addEventListener('error',fail,{once:true});
+              (document.body||document.documentElement).appendChild(bridge);
+              const attempt=bridge.play();
+              if(attempt && attempt.catch){attempt.catch(()=>{fail();});}
+            });
+          }catch(err){console.warn("[Audio] Auto-unlock failed",err);}
+          return ctx;
+        })();
+      }
+      await audioReadyPromise.catch(()=>{});
+      if(ctx.state!=="running"){
+        const unlock=()=>{
+          ctx.resume().catch(()=>{});
+          document.removeEventListener('pointerdown',unlock);
+          document.removeEventListener('touchstart',unlock);
+        };
+        document.addEventListener('pointerdown',unlock,{once:true});
+        document.addEventListener('touchstart',unlock,{once:true});
+      }
+      return ctx;
+    }
+
+    async function playAudio(){
+      try{
+        const ctx=await ensureAudioCtx();
+        if(!ctx||ctx.state!=="running"){return;}
+        const now=ctx.currentTime;
+        const master=ctx.createGain();
+        master.gain.setValueAtTime(0.38,now);
+        master.gain.exponentialRampToValueAtTime(0.0001,now+1.4);
+        master.connect(ctx.destination);
+
+        const boom=ctx.createOscillator();
+        boom.type='sine';
+        boom.frequency.setValueAtTime(68,now);
+        boom.frequency.exponentialRampToValueAtTime(32,now+.65);
+        const boomGain=ctx.createGain();
+        boomGain.gain.setValueAtTime(0.0001,now);
+        boomGain.gain.exponentialRampToValueAtTime(1.1,now+.06);
+        boomGain.gain.exponentialRampToValueAtTime(0.0001,now+1.05);
+        boom.connect(boomGain).connect(master);
+        boom.start(now);
+        boom.stop(now+1.1);
+
+        const hit=ctx.createOscillator();
+        hit.type='triangle';
+        hit.frequency.setValueAtTime(220,now);
+        hit.frequency.exponentialRampToValueAtTime(120,now+.18);
+        const hitGain=ctx.createGain();
+        hitGain.gain.setValueAtTime(0.0001,now);
+        hitGain.gain.linearRampToValueAtTime(0.55,now+.018);
+        hitGain.gain.linearRampToValueAtTime(0.0001,now+.28);
+        hit.connect(hitGain).connect(master);
+        hit.start(now);
+        hit.stop(now+.32);
+
+        const noiseBuffer=ctx.createBuffer(1,ctx.sampleRate*1.1,ctx.sampleRate);
+        const noiseData=noiseBuffer.getChannelData(0);
+        for(let i=0;i<noiseData.length;i++){
+          const decay=1-(i/noiseData.length);
+          noiseData[i]=(Math.random()*2-1)*decay*decay;
+        }
+        const noise=ctx.createBufferSource();
+        noise.buffer=noiseBuffer;
+        const noiseFilter=ctx.createBiquadFilter();
+        noiseFilter.type='bandpass';
+        noiseFilter.frequency.setValueAtTime(2600,now);
+        noiseFilter.Q.value=0.9;
+        const noiseGain=ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.28,now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.0001,now+.95);
+        noise.connect(noiseFilter).connect(noiseGain).connect(master);
+        noise.start(now);
+        noise.stop(now+1.1);
+      }catch(err){
+        console.warn("[Audio] playback skipped",err);
+      }
+    }
+
+    function fire(){
+      updateToastBurn(lastBurnAmount||0);
+      toastEl.classList.remove('show');
+      void toastEl.offsetWidth;
+      toastEl.classList.add('show');
+      subtleBurst();
+      if(burnGlowEl){
+        burnGlowEl.classList.remove('show');
+        void burnGlowEl.offsetWidth;
+        burnGlowEl.classList.add('show');
+        setTimeout(()=>burnGlowEl.classList.remove('show'),1100);
+      }
+      pulseCountdownImmediate();
+    }
+
+    window.Overlay={
+      setStatus:t=>statusEl.textContent=t,
+      setFees:()=>{},
+      addBurned:u=>{
+        const val=Number(u)||0;
+        lastBurnAmount=val;
+        accBurn+=val;
+        tween(burnedEl,accBurn);
+        updateToastBurn(val);
+      },
+      setLast:(sol,b)=>{lastEl.textContent=`Spent ${Number(sol).toFixed(4)} SOL → Burned ${Number(b).toLocaleString()}`;recordBurn(sol,b);},
+      cycleSeconds:s=>{updateCycleSecondsUI(s,{reset:true,announce:false});},
+      resetCountdown:s=>resetCountdown(s),
+      fire:()=>fire(),
+      log,
+      setTicker:items=>{if(Array.isArray(items)&&items.length){tickerTrack.innerHTML=items.concat(items).map(t=>`<span>${t}</span>`).join('');}},
+      setContextDeck:deck=>{if(Array.isArray(deck)&&deck.length){contextOverride=true;contextDeck=deck;contextIndex=0;contextHighlightIndex=0;renderContextCards();}},
+      setWalletSnapshot:(stage,data)=>{
+        if(!stage||!(stage in walletSnapshotState))return;
+        const lamports=Number.isFinite(data?.lamports)?data.lamports:null;
+        const sol=Number.isFinite(data?.sol)?data.sol:(lamports!=null?lamports/LAMPORTS_PER_SOL_VIEW:null);
+        const token=Number.isFinite(data?.token)?data.token:(Number.isFinite(data?.tokenUi)?data.tokenUi:null);
+        walletSnapshotState[stage]={sol,token};
+        renderWalletSnapshot();
+      },
+      setReserveSol:value=>{
+        walletReserveSol=Number.isFinite(value)?value:null;
+        renderWalletSnapshot();
+      },
+      setPendingFees:(amountSol,note)=>{
+        updatePendingFeesDisplay(Number.isFinite(amountSol)?amountSol:null,note);
+      }
+    };
+    renderWalletSnapshot();
+    updatePendingFeesDisplay(null,'Waiting for next claim…');
+
+    const testBurn=()=>{
+      const spent=+(Math.random()*0.18+0.03).toFixed(4);
+      const tok=+(Math.random()*2000+300).toFixed(2);
+      window.Overlay.setFees(spent);
+      window.Overlay.addBurned(tok);
+      window.Overlay.setLast(spent,tok);
+      window.Overlay.fire();
+      log('[TEST] Burn FX');
+      resetCountdown();
+    };
+
+    // Test burn triggers are reserved for demo mode; no public UI binding.
+
+    window.__ABB_UI_TEST__={
+      getLog:()=>logEl.textContent,
+      getStatus:()=>statusEl.textContent,
+      getCountdown:()=>countdownEl.textContent,
+      getBurned:()=>burnedEl.textContent,
+      triggerTestBurn:testBurn
+    };
+
+    if(FX_ENABLED){
+      resizeCanvases();
+      initAmbient();
+      requestAnimationFrame(ambientFrame);
+    }
+    renderContextCards();
+    setInterval(()=>{
+      if(!contextOverride && contextDeck.length>1){
+        contextIndex=(contextIndex+1)%contextDeck.length;
+        contextHighlightIndex=(contextHighlightIndex+1)%contextDeck.length;
+        renderContextCards();
+      }
+    },22000);
+    updateCountdown();
+    updateTicker();
+    updateCycleTape();
+    updateTotalSolDisplay();
+  </script>
+
+  <script type="module">
+    // ---- CONFIG ----
+    const RPC_URL="https://mainnet.helius-rpc.com/?api-key=40992ef8-eccd-4246-9cdc-d6d3d8176060";  // set to your Helius key
+    const TOKEN_MINT="ATap4kfShttKP16v2ndjo5rtwDG2C3vMYez1mVNz2zLp"; // placeholder: wrapped SOL mint
+    const TOKEN_DECIMALS=6;
+    const runtimeCycleConfig=window.__ABB_CYCLE_CONFIG__||{};
+    const DEFAULT_CYCLE_SECONDS=runtimeCycleConfig.default??30;
+    const MIN_CYCLE_SECONDS=runtimeCycleConfig.min??30;
+    const MAX_CYCLE_SECONDS=runtimeCycleConfig.max??1800;
+    const CYCLE_STEP_SECONDS=runtimeCycleConfig.step??30;
+    runtimeCycleConfig.default=DEFAULT_CYCLE_SECONDS;
+    runtimeCycleConfig.min=MIN_CYCLE_SECONDS;
+    runtimeCycleConfig.max=MAX_CYCLE_SECONDS;
+    runtimeCycleConfig.step=CYCLE_STEP_SECONDS;
+    const MIN_SOL_SWAP=0.01;
+    const RESERVE_SOL=0.02;
+    const SLIPPAGE_BPS=300;
+    const PRIORITY_FEE_LAMPORTS=2_000_000;
+    const PRIORITY_FEE_SOL=PRIORITY_FEE_LAMPORTS/1_000_000_000;
+    const CREATOR_FEE_PRIORITY_SOL=0.000001;
+    const PUMPPORTAL_PROXY_BASE="https://dark-shadow-9c8d.wyattlukedennis.workers.dev";
+    const PUMPPORTAL_HEALTH_URL=`${PUMPPORTAL_PROXY_BASE}/health`;
+    const HEALTH_PROBE_INTERVAL_MS=45000;
+    const healthBridge=window.__ABB_HEALTH_BRIDGE__||null;
+    let healthProbeTimer=null;
+
+    window.__ABB_RESERVE_SOL__=RESERVE_SOL;
+
+    function healthSetRuntime(value,desc){healthBridge?.setRuntime?.(value,desc);} 
+    function healthSetRpc(value,desc){healthBridge?.setRpc?.(value,desc);} 
+    function healthSetPump(value,desc){healthBridge?.setPump?.(value,desc);} 
+    function healthSetWallet(values){healthBridge?.setWallet?.(values);} 
+
+    healthBridge?.setInitial?.();
+
+    async function probeRpcHealth(){
+      if(!healthBridge){return;}
+      const started=performance.now();
+      try{
+        const resp=await fetch(RPC_URL,{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({jsonrpc:'2.0',id:'health',method:'getLatestBlockhash'})
+        });
+        const elapsed=Math.round(performance.now()-started);
+        if(!resp.ok){throw new Error(resp.statusText||resp.status);}
+        const json=await resp.json().catch(()=>null);
+        const slot=json?.result?.context?.slot;
+        if(slot!=null){
+          healthSetRpc('Online',`Slot ${slot.toLocaleString()} · ${elapsed}ms`);
+        }else{
+          healthSetRpc('Online',`Responded in ${elapsed}ms`);
+        }
+      }catch(err){
+        healthSetRpc('Error',`RPC probe failed: ${(err?.message||err)}`);
+      }
+    }
+
+    async function probePumpPortalHealth(){
+      if(!healthBridge){return;}
+      const started=performance.now();
+      try{
+        const resp=await fetch(PUMPPORTAL_HEALTH_URL,{method:'GET',cache:'no-store'});
+        const elapsed=Math.round(performance.now()-started);
+        if(resp.ok){
+          const type=resp.headers.get('content-type')||'';
+          let info='OK';
+          if(type.includes('application/json')){
+            const json=await resp.json().catch(()=>null);
+            if(json!=null){info=JSON.stringify(json);}
+          }else{
+            const text=await resp.text().catch(()=>null);
+            if(text){info=text.trim().slice(0,80);}
+          }
+          healthSetPump('Online',`${info} · ${elapsed}ms`);
+        }else if(resp.status===404){
+          healthSetPump('Proxy',`Reachable (${elapsed}ms) — add /health handler for details`);
+        }else{
+          healthSetPump('Warn',`Status ${resp.status} · ${elapsed}ms`);
+        }
+      }catch(err){
+        healthSetPump('Error',`Probe failed: ${(err?.message||err)}`);
+      }
+    }
+
+    async function runHealthProbes(){
+      if(!healthBridge){return;}
+      await Promise.allSettled([probeRpcHealth(),probePumpPortalHealth()]);
+    }
+
+    function scheduleHealthProbe(){
+      if(healthProbeTimer){clearTimeout(healthProbeTimer);}
+      healthProbeTimer=setTimeout(async()=>{
+        await runHealthProbes();
+        scheduleHealthProbe();
+      },HEALTH_PROBE_INTERVAL_MS);
+    }
+
+    function startHealthProbes(){
+      if(!healthBridge){return;}
+      runHealthProbes().finally(()=>scheduleHealthProbe());
+    }
+
+    if(typeof window!=="undefined"){
+      addEventListener('beforeunload',()=>{if(healthProbeTimer){clearTimeout(healthProbeTimer);healthProbeTimer=null;}});
+    }
+    let cycleSecondsInternal=DEFAULT_CYCLE_SECONDS;
+    let baseCycleMs=cycleSecondsInternal*1000;
+    const RETRY_INITIAL_MS=8000;
+    let retryMaxMs=Math.max(baseCycleMs*4,120000);
+    const MOCK_STORAGE_KEY=window.__ABB_MOCK_STORAGE_KEY__||"abb_mock_mode";
+    const MOCK_MODE=window.__ABB_MOCK_MODE__||false;
+
+    function clampCycleSeconds(value){
+      if(!Number.isFinite(value)){return cycleSecondsInternal;}
+      const stepped=Math.round(value/CYCLE_STEP_SECONDS)*CYCLE_STEP_SECONDS;
+      return Math.min(MAX_CYCLE_SECONDS,Math.max(MIN_CYCLE_SECONDS,stepped));
+    }
+
+    function setCycleSecondsInternal(nextSeconds,{reschedule=true,announce=false}={}){
+      const clamped=clampCycleSeconds(nextSeconds);
+      const changed=clamped!==cycleSecondsInternal;
+      cycleSecondsInternal=clamped;
+      baseCycleMs=cycleSecondsInternal*1000;
+      retryMaxMs=Math.max(baseCycleMs*4,120000);
+      if(runtimeCycleConfig){runtimeCycleConfig.current=cycleSecondsInternal;}
+      const updateUI=window.__ABB_UPDATE_CYCLE_UI__;
+      if(typeof updateUI==="function"){
+        updateUI(cycleSecondsInternal,{reset:!reschedule,announce:announce&&changed});
+      }else{
+        window.Overlay.resetCountdown(cycleSecondsInternal);
+      }
+      if(reschedule){
+        if(changed){queueRuntimeStatus('Standby','Cycle interval updated');}
+        scheduleNext(baseCycleMs);
+      }
+      return cycleSecondsInternal;
+    }
+
+    window.__burnToken=TOKEN_MINT;
+    const tokenMintDisplay=document.getElementById('tokenMintDisplay');
+    if(tokenMintDisplay){tokenMintDisplay.textContent=TOKEN_MINT;}
+
+    // PumpPortal
+    const USE_PUMPPORTAL_LIGHTNING = false; // false = Local (sign tx in browser), true = Lightning (server executes)
+    const PUMPPORTAL_API_KEY = "";          // only needed for Lightning
+
+    startHealthProbes();
+    setCycleSecondsInternal(DEFAULT_CYCLE_SECONDS,{reschedule:false,announce:false});
+    window.Overlay.setReserveSol(RESERVE_SOL);
+    window.Overlay.setPendingFees(null,'Waiting for next claim…');
+
+    import { Connection, PublicKey, Transaction, VersionedTransaction, LAMPORTS_PER_SOL, Keypair } from "https://esm.sh/@solana/web3.js@1.95.3";
+    import { getAssociatedTokenAddress, createAssociatedTokenAccountInstruction, createBurnCheckedInstruction } from "https://esm.sh/@solana/spl-token@0.4.6";
+
+    const MIN_SWAP_LAMPORTS=Math.ceil(MIN_SOL_SWAP*LAMPORTS_PER_SOL);
+    const RESERVE_LAMPORTS=Math.ceil(RESERVE_SOL*LAMPORTS_PER_SOL);
+
+    const TOKEN_MINT_PK=new PublicKey(TOKEN_MINT);
+
+    const mockState=MOCK_MODE?{
+      cycle:0,
+      lamports:Math.round((RESERVE_SOL+0.12)*LAMPORTS_PER_SOL),
+      tokenAmount:0n,
+      ataCreated:false,
+      swapOut:BigInt(420_000_000), // 420 tokens @ 6 decimals
+      priceImpactPct:0.0025,
+      claimLamports:Math.round(0.07*LAMPORTS_PER_SOL)
+    }:null;
+
+    const ALPHABET="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"; const MAP=Object.fromEntries([...ALPHABET].map((c,i)=>[c,i]));
+    function bs58ToBytes(s){if(!s.length)return new Uint8Array(0);const b=[0];for(const ch of s){const v=MAP[ch];if(v===undefined)throw new Error('bad b58');let c=v;for(let j=0;j<b.length;j++){const x=b[j]*58+c;b[j]=x&255;c=x>>8}while(c){b.push(c&255);c>>=8}}let z=0;while(z<s.length&&s[z]==='1')z++;return new Uint8Array([...b.reverse(),...new Array(z).fill(0)])}
+
+    let sessionSecret=null;
+    function getSecret(){
+      if(sessionSecret){return sessionSecret;}
+      const sk=prompt("Paste burner secret (base58) — stored only for this session");
+      if(!sk){throw new Error("no secret");}
+      sessionSecret=sk.trim();
+      alert("Secret kept in-memory until refresh.\nShift+Backspace clears it manually.");
+      return sessionSecret;
+    }
+    addEventListener('keydown',e=>{
+      if(e.key==='Backspace'&&e.shiftKey){
+        sessionSecret=null;
+        alert("Secret cleared from memory; you will be prompted next cycle.");
+      }
+      if(e.key.toLowerCase()==='m'&&e.shiftKey){
+        const next=!MOCK_MODE;
+        localStorage.setItem(MOCK_STORAGE_KEY,next?"true":"false");
+        window.__ABB_MOCK_MODE__=next;
+        alert(`Mock mode ${next?"enabled":"disabled"}; reload to apply`);
+      }
+    });
+
+    function base64ToUint8Array(str){
+      const binary=atob(str);
+      const len=binary.length;
+      const bytes=new Uint8Array(len);
+      for(let i=0;i<len;i++){bytes[i]=binary.charCodeAt(i);}
+      return bytes;
+    }
+
+    function formatUiAmount(raw,decimals){
+      const bigRaw=BigInt(raw);
+      const divisor=BigInt(10)**BigInt(decimals);
+      const whole=bigRaw/divisor;
+      const fraction=bigRaw%divisor;
+      let fracStr=fraction.toString().padStart(decimals,'0');
+      fracStr=fracStr.replace(/0+$/,"");
+      const uiString=fracStr.length?`${whole}.${fracStr}`:whole.toString();
+      return {uiString,uiNumber:parseFloat(uiString||"0")};
+    }
+
+    async function jupQuote(inputMint, outputMint, amountLamports, slippageBps){
+      if(MOCK_MODE){
+        mockState.lastQuote={inputMint,outputMint,amountLamports,slippageBps};
+        return {
+          outAmount: mockState.swapOut.toString(),
+          inAmount: String(amountLamports),
+          priceImpactPct: mockState.priceImpactPct
+        };
+      }
+      const url=new URL("https://quote-api.jup.ag/v6/quote");
+      url.searchParams.set("inputMint",inputMint);url.searchParams.set("outputMint",outputMint);url.searchParams.set("amount",String(amountLamports));url.searchParams.set("slippageBps",String(slippageBps));
+      const r=await fetch(url.toString()); if(!r.ok) throw new Error("quote failed"); return r.json();
+    }
+    async function jupSwapTx(quote, userPublicKey){
+      if(MOCK_MODE){
+        return {
+          sign(){/* noop in mock */},
+          serialize(){
+            const toSpend=quote?.inAmount?Number(quote.inAmount):mockState.lastQuote?.amountLamports||0;
+            mockState.lamports=Math.max(RESERVE_LAMPORTS, mockState.lamports-toSpend);
+            mockState.tokenAmount=mockState.swapOut;
+            mockState.cycle+=1;
+            return new Uint8Array([0x6d,0x6f,0x63,0x6b]); // "mock"
+          }
+        };
+      }
+      const r=await fetch("https://quote-api.jup.ag/v6/swap",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({quoteResponse:quote,userPublicKey,wrapAndUnwrapSol:true,dynamicComputeUnitLimit:true,prioritizationFeeLamports:PRIORITY_FEE_LAMPORTS})});
+      if(!r.ok) throw new Error("swap build failed");
+      const j=await r.json();
+      if(!j.swapTransaction) throw new Error("swap response missing transaction");
+      const bytes=base64ToUint8Array(j.swapTransaction);
+      return VersionedTransaction.deserialize(bytes);
+    }
+
+    // ---- PumpPortal integration ----
+    async function claimCreatorFeesLocal(ownerPubkeyBase58){
+      if(MOCK_MODE){
+        mockState.lamports+=mockState.claimLamports;
+        window.Overlay.log(`[MOCK] Creator fees +${(mockState.claimLamports/LAMPORTS_PER_SOL).toFixed(4)} SOL`);
+        setHealthPump('Mock','Creator fees simulated (+mock SOL)');
+        return true;
+      }
+      try{
+        const resp = await fetch(`${PUMPPORTAL_PROXY_BASE}/api/trade-local`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            publicKey: ownerPubkeyBase58,
+            action: "collectCreatorFee",
+            pool: "pump",
+            priorityFee: CREATOR_FEE_PRIORITY_SOL
+          })
+        });
+        if (resp.status !== 200) {
+          window.Overlay.log("Creator-fee build failed: " + (resp.statusText || resp.status));
+          setHealthPump('Error',`PumpPortal ${resp.status}`);
+          return false;
+        }
+        // Try binary first
+        const ct = resp.headers.get("content-type") || "";
+        let vtx;
+        if (ct.includes("application/octet-stream")) {
+          const bytes = new Uint8Array(await resp.arrayBuffer());
+          vtx = VersionedTransaction.deserialize(bytes);
+        } else {
+          // Some environments return JSON with base64
+          const json = await resp.json().catch(()=>null);
+          if (!json) { window.Overlay.log("Creator-fee response parse error"); setHealthPump('Error','PumpPortal parse error'); return false; }
+          if (json.transaction) {
+            const buf = Uint8Array.from(atob(json.transaction), c=>c.charCodeAt(0));
+            vtx = VersionedTransaction.deserialize(buf);
+          } else {
+            window.Overlay.log("Creator-fee JSON missing 'transaction' field");
+            setHealthPump('Error','PumpPortal payload missing transaction');
+            return false;
+          }
+        }
+        vtx.sign([kp]);
+        const sig = await conn.sendRawTransaction(vtx.serialize(), { skipPreflight: true });
+        window.Overlay.log("Creator fees claimed: " + sig);
+        window.Overlay.log("Solscan: https://solscan.io/tx/" + sig);
+        await conn.confirmTransaction(sig, "confirmed");
+        return true;
+      }catch(e){
+        window.Overlay.log("Creator-fee claim error: " + (e?.message || e));
+        setHealthPump('Error','Claim error: '+(e?.message||e));
+        return false;
+      }
+    }
+
+    async function claimCreatorFeesLightning(){
+      if(MOCK_MODE){
+        mockState.lamports+=mockState.claimLamports;
+        window.Overlay.log(`[MOCK] Lightning fees +${(mockState.claimLamports/LAMPORTS_PER_SOL).toFixed(4)} SOL`);
+        setHealthPump('Mock','Lightning claim simulated');
+        return true;
+      }
+      try{
+        if (!PUMPPORTAL_API_KEY) { window.Overlay.log("Lightning API key missing"); setHealthPump('Error','PumpPortal API key missing'); return false; }
+        const resp = await fetch("https://pumpportal.fun/api/trade?api-key=" + encodeURIComponent(PUMPPORTAL_API_KEY), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "collectCreatorFee", pool: "pump", priorityFee: PRIORITY_FEE_SOL })
+        });
+        const j = await resp.json().catch(()=>null);
+        if (!resp.ok || !j) { window.Overlay.log("Lightning claim failed"); return false; }
+        if (j.signature) {
+          window.Overlay.log("Creator fees claimed (Lightning): " + j.signature);
+          setHealthPump('Claimed','Lightning claim signature '+j.signature.slice(0,8)+'…');
+          return true;
+        } else {
+          window.Overlay.log("Lightning response: " + JSON.stringify(j));
+          if(j.ok){setHealthPump('Claimed','Lightning claim acknowledged');}
+          else{setHealthPump('Error','Lightning response not OK');}
+          return !!j.ok;
+        }
+      }catch(e){
+        window.Overlay.log("Lightning claim error: " + (e?.message || e));
+        setHealthPump('Error','Lightning error: '+(e?.message||e));
+        return false;
+      }
+    }
+
+    // ---- Core loop ----
+    let conn, kp;
+
+    function scheduleNext(delayMs){
+      if(runtime.timerHandle){clearTimeout(runtime.timerHandle);runtime.timerHandle=null;}
+      const queued=consumeQueuedRuntimeStatus();
+      const delayText=formatDelay(delayMs);
+      const retrying=runtime.retryDelayMs>0;
+      let label=retrying?'Retrying':'Standby';
+      let detail=retrying?`Retry in ${delayText}`:`Next cycle in ${delayText}`;
+      if(queued){
+        if(queued.value){label=queued.value;}
+        if(queued.detail){
+          detail=`${queued.detail} · ${retrying?'retry in':'next in'} ${delayText}`;
+        }
+      }
+      setHealthRuntime(label,detail);
+      window.Overlay.resetCountdown(delayMs/1000);
+      const runner=runtime.demoMode?demoRunCycle:runCycle;
+      runtime.timerHandle=setTimeout(runner,delayMs);
+    }
+
+    function demoRunCycle(){
+      if(runtime.cycleInFlight){return;}
+      runtime.cycleInFlight=true;
+      setHealthRuntime('Running','Demo burn animation active…');
+      try{
+        log('[DEMO] Auto test burn');
+        testBurn();
+      }finally{
+        runtime.cycleInFlight=false;
+        scheduleNext(baseCycleMs);
+      }
+    }
+
+    function normalizeTokenUi(value){
+      if(!value)return 0;
+      if(value.uiAmount!=null){const num=Number(value.uiAmount);return Number.isFinite(num)?num:0;}
+      if(value.uiAmountString!=null){const parsed=parseFloat(value.uiAmountString);return Number.isFinite(parsed)?parsed:0;}
+      if(value.amount!=null){
+        const parsed=parseFloat(value.amount);
+        if(Number.isFinite(parsed)){return parsed/10**TOKEN_DECIMALS;}
+      }
+      return 0;
+    }
+
+    async function readWalletBalances(ownerPk){
+      if(MOCK_MODE){
+        const tokenUi=Number(mockState.tokenAmount)/10**TOKEN_DECIMALS;
+        return {lamports:mockState.lamports, tokenUi};
+      }
+      const lamports=await conn.getBalance(ownerPk,"confirmed");
+      let tokenUi=0;
+      try{
+        const ata=await getAssociatedTokenAddress(TOKEN_MINT_PK, ownerPk);
+        const bal=await conn.getTokenAccountBalance(ata,"confirmed");
+        tokenUi=normalizeTokenUi(bal?.value);
+      }catch{
+        tokenUi=0;
+      }
+      return {lamports, tokenUi};
+    }
+
+    function createMockConnection(){
+      let sigCounter=0;
+      return {
+        getBalance(){return Promise.resolve(mockState.lamports);},
+        getLatestBlockhash(){return Promise.resolve({blockhash:`mock-blockhash-${Date.now()}`,lastValidBlockHeight:999999});},
+        sendRawTransaction(_bytes){
+          const sig=`MOCK_SIG_${++sigCounter}`;
+          return Promise.resolve(sig);
+        },
+        confirmTransaction(){return Promise.resolve();},
+        getAccountInfo(){
+          if(!mockState.ataCreated){
+            mockState.ataCreated=true;
+            return Promise.resolve(null);
+          }
+          return Promise.resolve({data:new Uint8Array(0)});
+        },
+        getTokenAccountBalance(){
+          const {uiString,uiNumber}=formatUiAmount(mockState.tokenAmount,TOKEN_DECIMALS);
+          return Promise.resolve({
+            value:{
+              amount: mockState.tokenAmount.toString(),
+              decimals: TOKEN_DECIMALS,
+              uiAmount: uiNumber,
+              uiAmountString: uiString || "0"
+            }
+          });
+        }
+      };
+    }
+
+    async function ensureATA(owner, mintPk){
+      const ata=await getAssociatedTokenAddress(mintPk, owner);
+      const info=await conn.getAccountInfo(ata,"confirmed");
+      if(!info){const latest=await conn.getLatestBlockhash("confirmed");const tx=new Transaction({feePayer:owner, recentBlockhash:latest.blockhash});tx.add(createAssociatedTokenAccountInstruction(owner,ata,owner,mintPk));tx.sign(kp);const sig=await conn.sendRawTransaction(tx.serialize(),{skipPreflight:true});window.Overlay.log("Create ATA: "+sig);await conn.confirmTransaction(sig,"confirmed")}
+      return ata;
+    }
+
+    async function runCycle(){
+      if(!kp||!conn){
+        window.Overlay.log("Skip: runtime not initialized");
+        setHealthRuntime('Awaiting Secret','Provide burner key to run live cycles');
+        return;
+      }
+      if(runtime.cycleInFlight){window.Overlay.log("Skip: cycle already running");return;}
+      runtime.cycleInFlight=true;
+      runtimeHealthState.queued=null;
+      setHealthRuntime('Running','Executing burn cycle…');
+      let failed=false;
+      let afterSnapshotSet=false;
+      let lastBalances=null;
+      let beforeBalances=null;
+      try{
+        if(MOCK_MODE){
+          window.Overlay.log(`[MOCK] === Cycle ${mockState.cycle+1}`);
+        }
+        // A) Claim creator fees via PumpPortal
+        const ownerPk = kp.publicKey;
+        const ownerBase58 = ownerPk.toBase58();
+        beforeBalances=await readWalletBalances(ownerPk);
+        lastBalances=beforeBalances;
+        window.Overlay.setWalletSnapshot('before',{lamports:beforeBalances.lamports,tokenUi:beforeBalances.tokenUi});
+        window.Overlay.setPendingFees(null,"Claiming creator fees…");
+        setHealthPump('Claiming','Requesting creator fees…');
+        const claimed = USE_PUMPPORTAL_LIGHTNING ? (await claimCreatorFeesLightning()) : (await claimCreatorFeesLocal(ownerBase58));
+        if (claimed){
+          window.Overlay.log("Claimed fees from pump.fun");
+          setHealthPump('Claiming','PumpPortal build ready');
+        }else{
+          window.Overlay.log("Skip: creator-fee claim failed");
+          failed=true;
+          setHealthPump('Error','Creator-fee claim failed');
+          queueRuntimeStatus('Standby','Awaiting successful creator-fee claim');
+          window.Overlay.setPendingFees(null,"Claim failed — retrying");
+          window.Overlay.setWalletSnapshot('after',{lamports:lastBalances.lamports,tokenUi:lastBalances.tokenUi});
+          afterSnapshotSet=true;
+          return;
+        }
+
+        // B) Compute spendable
+        const postClaimBalances=await readWalletBalances(ownerPk);
+        lastBalances=postClaimBalances;
+        const balLamports=postClaimBalances.lamports;
+        const claimedLamports=Math.max(0, balLamports-beforeBalances.lamports);
+        const claimedSol=claimedLamports/LAMPORTS_PER_SOL;
+        window.Overlay.setPendingFees(claimedSol, claimedSol>0.0000005?"Collected this cycle":"No fees available");
+        if(claimedSol>0){
+          setHealthPump('Claimed',`Collected ${claimedSol.toFixed(4)} SOL at ${new Date().toLocaleTimeString()}`);
+      }else{
+        setHealthPump('Idle','No creator fees available');
+        if(healthBridge){healthSetWallet({totalSol:balLamports/LAMPORTS_PER_SOL,spendableSol:spendableSol,reserveSol:RESERVE_SOL});}
+      }
+        const spendableLamports=Math.max(0, balLamports-RESERVE_LAMPORTS);
+        const spendableSol=spendableLamports/LAMPORTS_PER_SOL;
+        if(healthBridge){
+          healthSetWallet({
+            totalSol:balLamports/LAMPORTS_PER_SOL,
+            spendableSol,
+            reserveSol:RESERVE_SOL
+          });
+        }
+        window.Overlay.setFees(spendableSol);
+        if(spendableLamports<MIN_SWAP_LAMPORTS){
+          window.Overlay.log(`Skip: spendable ${spendableSol.toFixed(4)} < min ${MIN_SOL_SWAP}`);
+          queueRuntimeStatus('Standby',`Waiting for \u2265 ${MIN_SOL_SWAP.toFixed(2)} SOL above reserve`);
+          setHealthPump('Idle','No fresh fees available');
+          window.Overlay.setWalletSnapshot('after',{lamports:lastBalances.lamports,tokenUi:lastBalances.tokenUi});
+          afterSnapshotSet=true;
+          return;
+        }
+
+        // C) Swap via Jupiter
+        const inMint="So11111111111111111111111111111111111111112";
+        const quote=await jupQuote(inMint, TOKEN_MINT, spendableLamports, SLIPPAGE_BPS);
+        if(!quote.outAmount){
+          window.Overlay.log("No Jupiter route");
+          queueRuntimeStatus('Standby','No Jupiter route available');
+          window.Overlay.setWalletSnapshot('after',{lamports:lastBalances.lamports,tokenUi:lastBalances.tokenUi});
+          afterSnapshotSet=true;
+          return;
+        }
+        const rawImpact=quote.priceImpactPct ?? quote.priceImpactPercent ?? quote.priceImpact;
+        const impactValue=typeof rawImpact==='string'?parseFloat(rawImpact.replace(/[^0-9.+-eE]/g,'')):Number(rawImpact);
+        if(Number.isFinite(impactValue) && impactValue*10000>SLIPPAGE_BPS){
+          window.Overlay.log(`Skip: price impact ${(impactValue*100).toFixed(2)}%`);
+          queueRuntimeStatus('Standby','Price impact too high');
+          window.Overlay.setWalletSnapshot('after',{lamports:lastBalances.lamports,tokenUi:lastBalances.tokenUi});
+          afterSnapshotSet=true;
+          return;
+        }
+
+        setHealthRuntime('Swapping','Executing Jupiter route…');
+        let tx=await jupSwapTx(quote, ownerBase58); tx.sign([kp]);
+        const sigSwap=await conn.sendRawTransaction(tx.serialize(),{skipPreflight:true}); window.Overlay.log("Swap: "+sigSwap);
+        await conn.confirmTransaction(sigSwap,"confirmed");
+
+        // D) Burn all
+        const mintPk=TOKEN_MINT_PK; const ata=await ensureATA(kp.publicKey, mintPk);
+        const balTok=await conn.getTokenAccountBalance(ata,"confirmed").catch(()=>null);
+        const rawStr=balTok?.value?.amount;
+        const rawAmount=rawStr?BigInt(rawStr):0n;
+        if(rawAmount<=0n){
+          window.Overlay.log("No tokens to burn post-swap.");
+          const postSwapBalances=await readWalletBalances(ownerPk);
+          lastBalances=postSwapBalances;
+          queueRuntimeStatus('Standby','Waiting for swap settlement');
+          window.Overlay.setWalletSnapshot('after',{lamports:postSwapBalances.lamports,tokenUi:postSwapBalances.tokenUi});
+          afterSnapshotSet=true;
+          return;
+        }
+        setHealthRuntime('Burning','Destroying tokens…');
+        const burnIx=createBurnCheckedInstruction(ata,mintPk,kp.publicKey,rawAmount,TOKEN_DECIMALS);
+        const latest2=await conn.getLatestBlockhash("confirmed");
+        const burnTx=new Transaction({feePayer:kp.publicKey, recentBlockhash:latest2.blockhash}).add(burnIx);
+        burnTx.sign(kp);
+        const sigBurn=await conn.sendRawTransaction(burnTx.serialize(),{skipPreflight:true}); window.Overlay.log("Burn: "+sigBurn);
+        await conn.confirmTransaction(sigBurn,"confirmed");
+
+        // E) Overlay
+        const burnedUi=parseFloat(balTok?.value?.uiAmountString||"0");
+        if(MOCK_MODE){
+          mockState.tokenAmount=0n;
+        }
+        window.Overlay.addBurned(burnedUi); window.Overlay.setLast(spendableSol, burnedUi); window.Overlay.fire();
+        const finalBalances=await readWalletBalances(ownerPk);
+        lastBalances=finalBalances;
+        window.Overlay.setWalletSnapshot('after',{lamports:finalBalances.lamports,tokenUi:finalBalances.tokenUi});
+        queueRuntimeStatus('Standby','Cycle complete');
+        setHealthPump('Monitoring','Standing by for next claim');
+        afterSnapshotSet=true;
+      }catch(e){ failed=true; console.error(e); window.Overlay.log("Cycle error: "+(e?.message||e)); setHealthRuntime('Error','Cycle error encountered'); setHealthPump('Error','See log for details'); queueRuntimeStatus('Retrying','Cycle error'); }
+      finally{
+        if(!afterSnapshotSet && lastBalances){
+          window.Overlay.setWalletSnapshot('after',{lamports:lastBalances.lamports,tokenUi:lastBalances.tokenUi});
+        }
+        runtime.cycleInFlight=false;
+        if(failed){
+          runtime.retryDelayMs=runtime.retryDelayMs?Math.min(runtime.retryDelayMs*2,retryMaxMs):Math.min(RETRY_INITIAL_MS,baseCycleMs);
+          window.Overlay.log(`Retrying in ${(runtime.retryDelayMs/1000).toFixed(1)}s`);
+          scheduleNext(runtime.retryDelayMs);
+        }else{
+          runtime.retryDelayMs=0;
+          scheduleNext(baseCycleMs);
+        }
+      }
+    }
+
+    if(typeof window!=="undefined"){
+      window.__ABB_RUN_CYCLE__=runCycle;
+      window.__ABB_DEMO_RUN_CYCLE__=demoRunCycle;
+      Object.defineProperty(window,"__ABB_TEST_HOOKS__",{
+        value:{
+          triggerCycle:()=>runCycle(),
+          schedule:(ms)=>scheduleNext(ms),
+          setCycle:(seconds)=>setCycleSecondsInternal(seconds,{reschedule:true,announce:true}),
+          setRetry:(ms)=>{runtime.retryDelayMs=ms;},
+          isRunning:()=>runtime.cycleInFlight,
+          getCycle:()=>cycleSecondsInternal,
+          getRetry:()=>runtime.retryDelayMs,
+          mockMode:MOCK_MODE,
+          mockState,
+          setMockState:(updates)=>{
+            if(!mockState||!updates){return;}
+            Object.assign(mockState,updates);
+          }
+        },
+        configurable:true
+      });
+    }
+
+    (async function init(){
+      if(MOCK_MODE){
+        kp=Keypair.generate();
+        conn=createMockConnection();
+        runtime.demoMode=false;
+        setHealthRuntime('Mock','Demo mode active');
+        setHealthRpc('Mock','Stubbed connection ready');
+        setHealthPump('Mock','Claims simulated');
+        window.Overlay.setStatus("mock mode: "+kp.publicKey.toBase58());
+        window.Overlay.log("[MOCK] Solana, PumpPortal, and Jupiter requests are stubbed");
+        window.Overlay.log("[MOCK] Shift+M toggles persistent mock mode");
+        queueRuntimeStatus('Mock','Demo mode active');
+        scheduleNext(800);
+        return;
+      }
+      setHealthRuntime('Awaiting Secret','Paste burner key to arm');
+      try{
+        const sk58=getSecret();
+        kp=Keypair.fromSecretKey(bs58ToBytes(sk58));
+      }
+      catch(e){
+        runtime.demoMode=true;
+        window.Overlay.setStatus("demo mode (Test Burn works)");
+        setHealthRuntime('Demo Mode','Test burn available');
+        setHealthRpc('Idle','No RPC connection');
+        setHealthPump('Demo','Creator fees simulated');
+        resetCountdown(2);
+        queueRuntimeStatus('Demo Mode','Test burn available');
+        scheduleNext(2000);
+        return;
+      }
+      conn=new Connection(RPC_URL,{commitment:"confirmed"});
+      runtime.demoMode=false;
+      window.Overlay.setStatus("running: "+kp.publicKey.toBase58());
+      setHealthRpc('Connected','Helius RPC ready');
+      queueRuntimeStatus('Standby','Cycle arming');
+      scheduleNext(700);
+    })();
+  </script>
+</body>
+</html>
