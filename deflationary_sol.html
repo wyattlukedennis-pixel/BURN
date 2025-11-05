@@ -13,7 +13,7 @@
     .burn-glow.show{opacity:.85;transform:scale(1.28)}
     .panel-shell{flex:1;display:flex;justify-content:center;align-items:flex-start;min-height:0}
     .panel-scale{position:relative;z-index:1;display:flex;justify-content:center;align-items:center;transform-origin:center center;transform:scale(var(--panel-scale,1));width:clamp(320px,calc(100vw - 32px),var(--panel-max-width));max-width:var(--panel-max-width);}
-    .panel{width:100%;height:100%;max-width:var(--panel-max-width);margin:0;padding:24px 32px 38px;position:relative;display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);grid-template-areas:"header header" "metrics context" "ticker context" "cycle context";row-gap:22px;column-gap:36px;align-content:start;grid-auto-rows:minmax(0,min-content);background:transparent;border:none;box-shadow:none;border-radius:0;overflow:hidden}
+    .panel{width:100%;height:100%;max-width:var(--panel-max-width);margin:0;padding:24px 32px 38px;position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,440px);grid-template-areas:"header header" "metrics context" "ticker context" "cycle context";row-gap:22px;column-gap:36px;align-content:start;grid-auto-rows:minmax(0,min-content);background:transparent;border:none;box-shadow:none;border-radius:0;overflow:hidden}
     .panel.pulse{box-shadow:none;transform:translateY(-2px)}
     .header{display:flex;justify-content:space-between;align-items:center;grid-area:header}
     .brand-wrap{display:flex;align-items:flex-end;gap:24px;width:100%;max-width:1180px}
@@ -57,13 +57,13 @@
     .context-section{display:flex;flex-direction:column;gap:12px}
     .context-section-head{font-size:clamp(15px,1.5vw,19px);letter-spacing:.2em;text-transform:uppercase;color:#9fb2d8;display:flex;align-items:center;gap:14px;text-shadow:0 6px 20px rgba(0,0,0,.45)}
     .context-section-head::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(120,140,180,.4),rgba(120,140,180,0))}
-    .context-section-body{display:grid;grid-template-columns:1fr;gap:12px}
+    .context-section-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
     .context-rail .context-section-body:only-child{flex:1}
     .context-card{display:flex;flex-direction:column;gap:10px;justify-content:center;border:1px solid rgba(255,255,255,.06);background:linear-gradient(155deg,rgba(18,20,32,.92),rgba(26,18,20,.9));border-radius:18px;padding:18px 22px;min-height:0;height:100%;opacity:0;transform:translateY(4px);transition:opacity .6s ease,transform .6s ease,box-shadow .6s ease;box-shadow:0 24px 32px rgba(0,0,0,.42)}
     .context-card.is-highlight{box-shadow:0 0 0 1px rgba(255,170,70,.35),0 22px 40px rgba(255,120,0,.18)}
     .context-card.active{opacity:1;transform:translateY(0)}
     .context-card.context-card--fees{background:linear-gradient(160deg,rgba(46,30,14,.88),rgba(70,32,12,.86));border-color:rgba(255,170,70,.28);box-shadow:0 24px 34px rgba(255,150,60,.16);}
-    .context-section-body--health{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+    .context-section-body--health{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
     .context-card[data-context-static]{opacity:1;transform:translateY(0)}
     .context-card--health{background:linear-gradient(155deg,rgba(16,22,36,.9),rgba(18,16,28,.9));border-color:rgba(140,170,255,.22);box-shadow:0 24px 34px rgba(20,30,60,.32)}
     .context-card--health .context-value{font-size:clamp(24px,2.1vw,30px);font-weight:800;color:#fff2c8;text-shadow:0 8px 20px rgba(0,0,0,.55)}
@@ -113,6 +113,8 @@
       .header{flex-direction:column;align-items:flex-start;gap:18px}
       .brand-wrap{flex-wrap:wrap;gap:18px}
       .grid{grid-template-columns:1fr;grid-template-areas:"timer" "stack" "wallet";gap:16px}
+      .context-section-body{grid-template-columns:1fr}
+      .context-section-body--health{grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
       .metric-stack{min-height:0}
       .context-rail{height:auto}
       .ticker-track{gap:36px;padding:0 32px}
